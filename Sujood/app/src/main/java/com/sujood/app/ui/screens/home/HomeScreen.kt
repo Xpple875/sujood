@@ -425,28 +425,27 @@ private fun SunArcWidget(
             // ── 3. Prayer time dots on the arc ──
             prayerTimes.forEach { prayerTime ->
                 val prog = getDayProgress(prayerTime.timestamp)
-                if (prog in 0.18f..0.82f) {
-                    // Map to arc angle: progress 0→1 maps to 180°→360°
-                    val angleDeg = 180.0 + (prog * 180.0)
-                    val rad = Math.toRadians(angleDeg)
-                    val ptX = centerX + arcRadius * cos(rad).toFloat()
-                    val ptY = centerY + arcRadius * sin(rad).toFloat()
+                // Map the 6am–6pm window (0.25..0.75) to the visible arc (0f..1f)
+                val arcFrac = ((prog - 0.05f) / 0.90f).coerceIn(0f, 1f)
+                val angleDeg = 180.0 + (arcFrac * 180.0)
+                val rad = Math.toRadians(angleDeg)
+                val ptX = centerX + arcRadius * cos(rad).toFloat()
+                val ptY = centerY + arcRadius * sin(rad).toFloat()
 
-                    val isCompleted = completedPrayers.contains(prayerTime.prayer)
+                val isCompleted = completedPrayers.contains(prayerTime.prayer)
 
-                    // Glow halo
-                    drawCircle(
-                        color = if (isCompleted) WarmAmber.copy(alpha = 0.25f) else SoftPurple.copy(alpha = 0.15f),
-                        radius = 10f,
-                        center = Offset(ptX, ptY)
-                    )
-                    // Dot
-                    drawCircle(
-                        color = if (isCompleted) WarmAmber else Color.White.copy(alpha = 0.4f),
-                        radius = 4.5f,
-                        center = Offset(ptX, ptY)
-                    )
-                }
+                // Glow halo
+                drawCircle(
+                    color = if (isCompleted) WarmAmber.copy(alpha = 0.25f) else SoftPurple.copy(alpha = 0.15f),
+                    radius = 10f,
+                    center = Offset(ptX, ptY)
+                )
+                // Dot
+                drawCircle(
+                    color = if (isCompleted) WarmAmber else Color.White.copy(alpha = 0.4f),
+                    radius = 4.5f,
+                    center = Offset(ptX, ptY)
+                )
             }
 
             // ── 4. Sun indicator ──

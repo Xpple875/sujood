@@ -83,8 +83,19 @@ class PrayerLockOverlayService : Service() {
         // Show the full-screen overlay
         showOverlay(prayerName, prayerArabic)
 
-        // Start Audio
-        playAlert()
+        // Read settings before playing audio / vibrating
+        serviceScope.launch {
+            val userPrefs = com.sujood.app.data.local.datastore.UserPreferences(applicationContext)
+            val settings = userPrefs.userSettings.first()
+
+            if (settings.adhanEnabled) {
+                launch(Dispatchers.Main) { playAlert() }
+            }
+
+            if (settings.vibrationEnabled) {
+                launch(Dispatchers.Main) { vibrateDevice() }
+            }
+        }
 
         // Start Sensor
         accelerometer?.let {
@@ -92,6 +103,24 @@ class PrayerLockOverlayService : Service() {
         }
 
         return START_NOT_STICKY
+    }
+
+    private fun vibrateDevice() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val manager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
+                manager.defaultVibrator.vibrate(
+                    android.os.VibrationEffect.createWaveform(longArrayOf(0, 500, 500, 500), -1)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(longArrayOf(0, 500, 500, 500), -1)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun createNotification(prayerName: String): Notification {
@@ -133,6 +162,7 @@ class PrayerLockOverlayService : Service() {
                 @Suppress("DEPRECATION")
                 WindowManager.LayoutParams.TYPE_PHONE
             },
+            // Do NOT include FLAG_NOT_TOUCH_MODAL — we want to block all background touches
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
                     WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
@@ -141,8 +171,6 @@ class PrayerLockOverlayService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.CENTER
-            // Force focus to prevent background interaction
-            flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
         }
 
         // Setup Overlay Content

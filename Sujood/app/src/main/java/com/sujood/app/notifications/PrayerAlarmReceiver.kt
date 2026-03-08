@@ -13,6 +13,7 @@ import com.sujood.app.domain.model.Prayer
 import com.sujood.app.service.PrayerLockOverlayService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class PrayerAlarmReceiver : BroadcastReceiver() {
@@ -132,5 +133,59 @@ class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+
+        val app = context.applicationContext as SujoodApplication
+        val repository = com.sujood.app.data.repository.PrayerTimesRepository(
+            com.sujood.app.data.api.RetrofitClient.aladhanApiService,
+            app.database.prayerLogDao()
+        )
+        val userPreferences = com.sujood.app.data.local.datastore.UserPreferences(context)
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val settings = userPreferences.userSettings.first()
+
+                // Fetch prayer times using saved location
+                val result = when {
+                    settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0 -> {
+                        repository.getPrayerTimes(
+                            latitude = settings.savedLatitude,
+                            longitude = settings.savedLongitude,
+                            method = settings.calculationMethod,
+                            madhab = settings.madhab
+                        )
+                    }
+                    settings.savedCity.isNotEmpty() -> {
+                        repository.getPrayerTimesByCity(settings.savedCity)
+                    }
+                    else -> return@launch
+                }
+
+                result.onSuccess { prayerTimes ->
+                    val scheduler = PrayerAlarmScheduler(context)
+                    val notificationEnabled = com.sujood.app.domain.model.Prayer.entries.map { prayer ->
+                        when (prayer) {
+                            com.sujood.app.domain.model.Prayer.FAJR -> settings.fajrNotificationEnabled
+                            com.sujood.app.domain.model.Prayer.DHUHR -> settings.dhuhrNotificationEnabled
+                            com.sujood.app.domain.model.Prayer.ASR -> settings.asrNotificationEnabled
+                            com.sujood.app.domain.model.Prayer.MAGHRIB -> settings.maghribNotificationEnabled
+                            com.sujood.app.domain.model.Prayer.ISHA -> settings.ishaNotificationEnabled
+                        }
+                    }.toBooleanArray()
+                    val lockEnabled = com.sujood.app.domain.model.Prayer.entries.map { prayer ->
+                        when (prayer) {
+                            com.sujood.app.domain.model.Prayer.FAJR -> settings.fajrLockEnabled
+                            com.sujood.app.domain.model.Prayer.DHUHR -> settings.dhuhrLockEnabled
+                            com.sujood.app.domain.model.Prayer.ASR -> settings.asrLockEnabled
+                            com.sujood.app.domain.model.Prayer.MAGHRIB -> settings.maghribLockEnabled
+                            com.sujood.app.domain.model.Prayer.ISHA -> settings.ishaLockEnabled
+                        }
+                    }.toBooleanArray()
+                    scheduler.scheduleAllAlarms(prayerTimes, notificationEnabled, lockEnabled, settings.gracePeriodMinutes)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 }

@@ -57,6 +57,8 @@ class HomeViewModel(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private var fusedLocationClient: FusedLocationProviderClient? = null
+    // Cached context for alarm scheduling (set on first location/prayer fetch)
+    private var cachedContext: Context? = null
 
     companion object {
         private const val TAG = "HomeViewModel"
@@ -70,6 +72,7 @@ class HomeViewModel(
     }
 
     fun initializeAndRefresh(context: Context) {
+        cachedContext = context.applicationContext
         // Called on every app open — always refresh from network using saved or GPS location
         viewModelScope.launch {
             val settings = userPreferences.userSettings.first()
@@ -136,6 +139,7 @@ class HomeViewModel(
 
     @SuppressLint("MissingPermission")
     fun fetchPrayerTimes(context: Context) {
+        cachedContext = context.applicationContext
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
         
         if (!hasLocationPermission(context)) {
@@ -193,6 +197,7 @@ class HomeViewModel(
     }
 
     fun fetchPrayerTimesByCity(context: Context, cityName: String) {
+        cachedContext = context.applicationContext
         if (cityName.isBlank()) {
             _uiState.value = _uiState.value.copy(error = "Please enter a city name")
             return
@@ -328,6 +333,34 @@ class HomeViewModel(
             error = null,
             showCityInput = false
         )
+
+        // Schedule alarms for all prayers using latest settings
+        scheduleAlarmsForPrayerTimes(prayerTimes)
+    }
+
+    private suspend fun scheduleAlarmsForPrayerTimes(prayerTimes: List<PrayerTime>) {
+        if (cachedContext == null) return
+        val settings = userPreferences.userSettings.first()
+        val scheduler = com.sujood.app.notifications.PrayerAlarmScheduler(cachedContext!!)
+        val notificationEnabled = Prayer.entries.map { prayer ->
+            when (prayer) {
+                Prayer.FAJR -> settings.fajrNotificationEnabled
+                Prayer.DHUHR -> settings.dhuhrNotificationEnabled
+                Prayer.ASR -> settings.asrNotificationEnabled
+                Prayer.MAGHRIB -> settings.maghribNotificationEnabled
+                Prayer.ISHA -> settings.ishaNotificationEnabled
+            }
+        }.toBooleanArray()
+        val lockEnabled = Prayer.entries.map { prayer ->
+            when (prayer) {
+                Prayer.FAJR -> settings.fajrLockEnabled
+                Prayer.DHUHR -> settings.dhuhrLockEnabled
+                Prayer.ASR -> settings.asrLockEnabled
+                Prayer.MAGHRIB -> settings.maghribLockEnabled
+                Prayer.ISHA -> settings.ishaLockEnabled
+            }
+        }.toBooleanArray()
+        scheduler.scheduleAllAlarms(prayerTimes, notificationEnabled, lockEnabled, settings.gracePeriodMinutes)
     }
 
     fun showCityInput() {
@@ -352,11 +385,12 @@ class HomeViewModel(
 
     fun logPrayerCompletion(prayer: Prayer) {
         viewModelScope.launch {
+            // logPrayerCompletionUseCase checks for duplicates before inserting
             logPrayerCompletionUseCase(prayer)
-            
+
             val completedToday = repository.getCompletedPrayersToday()
             val streak = getPrayerStreakUseCase()
-            
+
             _uiState.value = _uiState.value.copy(
                 completedPrayersToday = completedToday,
                 streakDays = streak

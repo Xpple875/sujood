@@ -86,21 +86,23 @@ fun QiblaScreen() {
                     KAABA_LATITUDE, KAABA_LONGITUDE
                 )
             } else {
-                // Fallback to GPS if no saved coords
+                // Try last-known GPS as fallback
                 try {
                     val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
                     val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
                         ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
 
-                    location?.let {
-                        userLatitude = it.latitude
-                        userLongitude = it.longitude
+                    if (location != null) {
+                        userLatitude = location.latitude
+                        userLongitude = location.longitude
                         hasLocation = true
                         qiblaDirection = calculateQiblaDirection(
                             userLatitude, userLongitude,
                             KAABA_LATITUDE, KAABA_LONGITUDE
                         )
                     }
+                    // If location is still null, hasLocation stays false and the UI
+                    // will show "Using approximate direction" warning — no fake angle shown
                 } catch (e: SecurityException) { }
             }
         }
@@ -192,9 +194,12 @@ fun QiblaScreen() {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = if (hasLocation) "Based on your current location" else "Using approximate direction",
+                text = when {
+                    hasLocation -> "Based on your current location"
+                    else -> "⚠️ No location found — open Home tab first"
+                },
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
+                color = if (hasLocation) TextSecondary else WarmAmber
             )
 
             Spacer(modifier = Modifier.height(48.dp))

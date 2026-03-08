@@ -107,13 +107,13 @@ class GetNextPrayerUseCase {
      */
     operator fun invoke(prayerTimes: List<PrayerTime>): NextPrayerInfo? {
         val currentTime = System.currentTimeMillis()
-        
+
         // Sort prayer times by timestamp
         val sortedTimes = prayerTimes.sortedBy { it.timestamp }
-        
+
         // Find the next prayer (first one that's in the future)
         val nextPrayer = sortedTimes.firstOrNull { it.timestamp > currentTime }
-        
+
         return if (nextPrayer != null) {
             NextPrayerInfo(
                 prayer = nextPrayer.prayer,
@@ -121,9 +121,16 @@ class GetNextPrayerUseCase {
                 prayerTime = nextPrayer
             )
         } else {
-            // All prayers for today have passed, return first prayer (Fajr) for tomorrow
-            // For simplicity, we return null here and the UI handles showing tomorrow's Fajr
-            null
+            // All prayers for today have passed — show Fajr for tomorrow
+            val fajr = sortedTimes.firstOrNull { it.prayer == Prayer.FAJR }
+            if (fajr != null) {
+                val tomorrowFajrTimestamp = fajr.timestamp + 24 * 60 * 60 * 1000L
+                NextPrayerInfo(
+                    prayer = Prayer.FAJR,
+                    timeRemainingMillis = tomorrowFajrTimestamp - currentTime,
+                    prayerTime = fajr.copy(timestamp = tomorrowFajrTimestamp)
+                )
+            } else null
         }
     }
 }

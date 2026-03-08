@@ -94,23 +94,23 @@ fun GreetingSection(
 fun DailyQuoteCard(
     modifier: Modifier = Modifier
 ) {
+    data class Quote(val text: String, val source: String, val isHadith: Boolean)
+
     val quotes = listOf(
-        "Indeed, those who have believed and done righteous deeds - the Most Merciful will appoint for them affection. (9)",
-        "The prayer is a cure for many diseases. (9)",
-        "Whoever prays fajr, he is in Allah's protection. (9)",
-        "Paradise has eight gates, and the middle gate is the gate of gratitude. (9)",
-        "The best of people are those who are most beneficial to people. (9)",
-        "He who thanks people, thanks Allah. (9)",
-        "Seek knowledge from the cradle to the grave. (9)",
-        "The strong person is not the one who overcomes others, but the one who controls himself in anger. (9)",
-        "No one truly knows a nation until one has been inside its prisons. (9)",
-        "He who wakes up for Fajr is under the protection of Allah. (9)"
+        Quote("Indeed, those who have believed and done righteous deeds – the Most Merciful will appoint for them affection.", "Quran 19:96", false),
+        Quote("Whoever prays Fajr is under the protection of Allah.", "Sahih Muslim", true),
+        Quote("The best of deeds in the sight of Allah are those done regularly, even if they are small.", "Sahih Bukhari & Muslim", true),
+        Quote("Indeed, prayer has been decreed upon the believers at specified times.", "Quran 4:103", false),
+        Quote("The strong person is not the one who overcomes others by force, but the one who controls himself when angry.", "Sahih Bukhari", true),
+        Quote("And whoever relies upon Allah – then He is sufficient for him.", "Quran 65:3", false),
+        Quote("The best of people are those most beneficial to others.", "Al-Mu'jam al-Awsat", true),
+        Quote("So remember Me; I will remember you. And be grateful to Me and do not deny Me.", "Quran 2:152", false),
+        Quote("Make things easy and do not make them difficult. Give glad tidings and do not drive people away.", "Sahih Bukhari", true),
+        Quote("He who thanks people has thanked Allah.", "Sunan Abu Dawud", true)
     )
-    
-    // Get quote based on day of year
+
     val dayOfYear = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_YEAR)
     val quote = quotes[dayOfYear % quotes.size]
-    val isHadith = quote.contains("(9)").let { true }
 
     FrostedGlassCard(
         modifier = modifier,
@@ -127,23 +127,31 @@ fun DailyQuoteCard(
                 tint = WarmAmber,
                 modifier = Modifier.size(24.dp)
             )
-            
+
             Spacer(modifier = Modifier.size(12.dp))
-            
+
             Column {
                 Text(
-                    text = if (isHadith) "Hadith of the Day" else "Verse of the Day",
+                    text = if (quote.isHadith) "Hadith of the Day" else "Verse of the Day",
                     style = MaterialTheme.typography.labelMedium,
                     color = SoftPurple
                 )
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 Text(
-                    text = quote.replace("(9)", "").trim(),
+                    text = quote.text,
                     style = MaterialTheme.typography.bodyMedium,
                     fontStyle = FontStyle.Italic,
                     color = Color.White.copy(alpha = 0.9f)
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "— ${quote.source}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary
                 )
             }
         }

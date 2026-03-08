@@ -204,9 +204,39 @@ class PrayerTimesRepository(
     }
 
     /**
-     * Gets the current prayer streak (consecutive days with all prayers completed).
+     * Gets the current prayer streak (consecutive days with all 5 prayers completed).
+     * Walks backwards from today counting unbroken consecutive days.
      */
     suspend fun getPrayerStreak(): Int {
-        return prayerLogDao.getCompletedDaysStreak()
+        val completedDates = prayerLogDao.getFullyCompletedDates() // descending
+        if (completedDates.isEmpty()) return 0
+
+        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+        val cal = java.util.Calendar.getInstance()
+        val todayStr = fmt.format(cal.time)
+        cal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+        val yesterdayStr = fmt.format(cal.time)
+
+        // Streak must start from today or yesterday (if today isn't done yet)
+        val startDate = when {
+            completedDates.first() == todayStr -> todayStr
+            completedDates.first() == yesterdayStr -> yesterdayStr
+            else -> return 0
+        }
+
+        val checkCal = java.util.Calendar.getInstance()
+        checkCal.time = fmt.parse(startDate) ?: return 0
+
+        var streak = 0
+        for (dateStr in completedDates) {
+            val expected = fmt.format(checkCal.time)
+            if (dateStr == expected) {
+                streak++
+                checkCal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+            } else {
+                break
+            }
+        }
+        return streak
     }
 }

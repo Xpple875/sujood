@@ -38,12 +38,14 @@ class PrayerAlarmScheduler(private val context: Context) {
         val hour = timeParts[0].toInt()
         val minute = timeParts[1].toInt()
 
-        // Create calendar for the prayer time
+        // Create calendar for the prayer time, applying grace period as early trigger
         val calendar = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute - gracePeriodMinutes) // Subtract grace period
+            set(Calendar.MINUTE, minute)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
+            // Grace period: alert this many minutes BEFORE the prayer time
+            add(Calendar.MINUTE, -gracePeriodMinutes)
 
             // If time has passed today, schedule for tomorrow
             if (timeInMillis <= System.currentTimeMillis()) {

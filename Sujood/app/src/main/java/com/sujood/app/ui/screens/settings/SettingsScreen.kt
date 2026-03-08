@@ -50,7 +50,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.sujood.app.data.local.datastore.UserPreferences
+import androidx.compose.ui.platform.LocalContext
+import com.sujood.app.SujoodApplication
+import com.sujood.app.data.api.RetrofitClient
+import com.sujood.app.data.repository.PrayerTimesRepository
+import com.sujood.app.notifications.PrayerAlarmScheduler
 import com.sujood.app.domain.model.CalculationMethod
 import com.sujood.app.domain.model.LockMode
 import com.sujood.app.domain.model.Madhab
@@ -66,6 +70,7 @@ import com.sujood.app.ui.theme.SoftPurple
 import com.sujood.app.ui.theme.TextSecondary
 import com.sujood.app.ui.theme.WarmAmber
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +78,7 @@ fun SettingsScreen(
     userPreferences: UserPreferences,
     onNavigateBack: () -> Unit
 ) {
+    val context = LocalContext.current
     val settings by userPreferences.userSettings.collectAsState(initial = UserSettings())
     var showNameDialog by remember { mutableStateOf(false) }
     var showMethodDialog by remember { mutableStateOf(false) }
@@ -180,7 +186,10 @@ fun SettingsScreen(
                                 Prayer.ISHA -> settings.ishaNotificationEnabled
                             },
                             onToggle = { enabled ->
-                                scope.launch { userPreferences.saveNotificationEnabled(prayer.name, enabled) }
+                                scope.launch {
+                                    userPreferences.saveNotificationEnabled(prayer.name, enabled)
+                                    rescheduleAlarms(context, userPreferences)
+                                }
                             }
                         )
                         if (prayer != Prayer.entries.last()) SettingsDivider()
@@ -207,7 +216,10 @@ fun SettingsScreen(
                                 Prayer.ISHA -> settings.ishaLockEnabled
                             },
                             onToggle = { enabled ->
-                                scope.launch { userPreferences.saveLockEnabled(prayer.name, enabled) }
+                                scope.launch {
+                                    userPreferences.saveLockEnabled(prayer.name, enabled)
+                                    rescheduleAlarms(context, userPreferences)
+                                }
                             }
                         )
                         if (prayer != Prayer.entries.last()) SettingsDivider()
@@ -621,4 +633,44 @@ private fun DurationDialog(currentMinutes: Int, onDismiss: () -> Unit, onSelect:
         confirmButton = {},
         containerColor = MidnightBlue
     )
+}
+
+// Helper: re-fetch prayer times with updated settings and reschedule alarms
+private suspend fun rescheduleAlarms(
+    context: android.content.Context,
+    userPreferences: com.sujood.app.data.local.datastore.UserPreferences
+) {
+    val settings = userPreferences.userSettings.first()
+    val app = context.applicationContext as SujoodApplication
+    val repository = PrayerTimesRepository(RetrofitClient.aladhanApiService, app.database.prayerLogDao())
+
+    val result = when {
+        settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0 ->
+            repository.getPrayerTimes(settings.savedLatitude, settings.savedLongitude, settings.calculationMethod, settings.madhab)
+        settings.savedCity.isNotEmpty() -> repository.getPrayerTimesByCity(settings.savedCity)
+        else -> return
+    }
+
+    result.onSuccess { prayerTimes ->
+        val scheduler = PrayerAlarmScheduler(context)
+        val notif = com.sujood.app.domain.model.Prayer.entries.map { p ->
+            when (p) {
+                com.sujood.app.domain.model.Prayer.FAJR -> settings.fajrNotificationEnabled
+                com.sujood.app.domain.model.Prayer.DHUHR -> settings.dhuhrNotificationEnabled
+                com.sujood.app.domain.model.Prayer.ASR -> settings.asrNotificationEnabled
+                com.sujood.app.domain.model.Prayer.MAGHRIB -> settings.maghribNotificationEnabled
+                com.sujood.app.domain.model.Prayer.ISHA -> settings.ishaNotificationEnabled
+            }
+        }.toBooleanArray()
+        val lock = com.sujood.app.domain.model.Prayer.entries.map { p ->
+            when (p) {
+                com.sujood.app.domain.model.Prayer.FAJR -> settings.fajrLockEnabled
+                com.sujood.app.domain.model.Prayer.DHUHR -> settings.dhuhrLockEnabled
+                com.sujood.app.domain.model.Prayer.ASR -> settings.asrLockEnabled
+                com.sujood.app.domain.model.Prayer.MAGHRIB -> settings.maghribLockEnabled
+                com.sujood.app.domain.model.Prayer.ISHA -> settings.ishaLockEnabled
+            }
+        }.toBooleanArray()
+        scheduler.scheduleAllAlarms(prayerTimes, notif, lock, settings.gracePeriodMinutes)
+    }
 }

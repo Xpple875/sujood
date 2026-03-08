@@ -50,21 +50,16 @@ interface PrayerLogDao {
     suspend fun deletePrayerLog(date: String, prayerName: String)
 
     /**
-     * Gets the count of consecutive days with all prayers completed.
-     * Returns the streak count.
+     * Gets all dates where all 5 prayers were completed, ordered descending.
+     * Used by the repository to calculate consecutive streak in Kotlin.
      */
     @Query("""
-        SELECT COUNT(*) FROM (
-            SELECT date, 
-                   COUNT(*) as prayercount,
-                   MAX(date) as maxdate
-            FROM prayer_logs 
-            GROUP BY date 
-            HAVING prayercount = 5
-            ORDER BY date DESC
-        )
+        SELECT date FROM prayer_logs
+        GROUP BY date
+        HAVING COUNT(DISTINCT prayerName) >= 5
+        ORDER BY date DESC
     """)
-    suspend fun getCompletedDaysStreak(): Int
+    suspend fun getFullyCompletedDates(): List<String>
 }
 
 /**
