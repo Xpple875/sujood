@@ -1,0 +1,59 @@
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:kspDebugKotlin
+
+> Task :app:compileDebugKotlin
+w: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:110:9 Variable 'hasCompletedOnboarding' is never used
+w: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/service/PrayerLockOverlayService.kt:101:48 'FLAG_SHOW_WHEN_LOCKED: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/service/PrayerLockOverlayService.kt:102:48 'FLAG_TURN_SCREEN_ON: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/components/PrayerComponents.kt:58:5 Parameter 'onClick' is never used
+w: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/components/PrayerComponents.kt:137:9 Variable 'scale' is never used
+w: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/home/HomeScreen.kt:305:17 Name shadowed: currentTimeProgress
+w: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/home/HomeViewModel.kt:152:32 Parameter 'context' is never used
+w: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/insights/InsightsScreen.kt:203:33 'LinearProgressIndicator(Float, Modifier = ..., Color = ..., Color = ..., StrokeCap = ...): Unit' is deprecated. Use the overload that takes `progress` as a lambda
+w: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/onboarding/EmotionalOnboardingScreen.kt:105:9 Variable 'scope' is never used
+w: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/settings/SettingsScreen.kt:93:57 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
+
+> Task :app:compileDebugJavaWithJavac
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:processDebugJavaRes
+> Task :app:mergeProjectDexDebug
+> Task :app:mergeDebugJavaResource
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+
+BUILD SUCCESSFUL in 31s
+38 actionable tasks: 11 executed, 27 up-to-date

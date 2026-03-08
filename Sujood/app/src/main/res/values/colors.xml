@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Colors - Calm Dark Theme -->
+    <color name="deep_navy">#FF0A0E1A</color>
+    <color name="midnight_blue">#FF111827</color>
+    <color name="surface_dark">#FF1A1F36</color>
+    
+    <!-- Accent Colors -->
+    <color name="soft_purple">#FF6C63FF</color>
+    <color name="warm_amber">#FFF5A623</color>
+    <color name="lavender_glow">#FFA78BFA</color>
+    <color name="soft_indigo">#FF818CF8</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#FFFFFFFF</color>
+    <color name="text_secondary">#FF8892A4</color>
+    <color name="text_tertiary">#FF5A6275</color>
+    
+    <!-- Status Colors -->
+    <color name="success_green">#FF4CAF50</color>
+    <color name="warning_orange">#FFFF9800</color>
+    
+    <!-- Gradient Colors -->
+    <color name="gradient_start">#FF0A0E1A</color>
+    <color name="gradient_center">#FF151B2E</color>
+    <color name="gradient_end">#FF2D1F4E</color>
+    
+    <!-- Frosted Glass -->
+    <color name="glass_background">#20111827</color>
+    <color name="glass_border">#40FFFFFF</color>
+</resources>

@@ -1,0 +1,165 @@
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:kspDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+
+> Task :app:compileDebugKotlin FAILED
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:49:34 Unresolved reference: monetization
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:109:44 Unresolved reference: currentBackStackEntryAsState
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:124:14 Unresolved reference: fillMaxSize
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:128:33 Unresolved reference: fillMaxSize
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:132:21 Unresolved reference: AnimatedVisibility
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:134:44 Unresolved reference: slideInVertically
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:134:64 Unresolved reference: it
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:135:44 Unresolved reference: slideOutVertically
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:135:65 Unresolved reference: it
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:137:25 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:155:22 Unresolved reference: fillMaxSize
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:163:21 Val cannot be reassigned
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:176:21 Unresolved reference: MonetizationScreen
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/MainActivity.kt:211:21 Unresolved reference: SettingsScreen
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/notifications/PrayerAlarmReceiver.kt:38:53 Type mismatch: inferred type is Prayer but String was expected
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/notifications/PrayerAlarmReceiver.kt:38:53 No value passed for parameter 'prayerArabic'
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/dhikr/DhikrScreen.kt:137:30 Unresolved reference: offset
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/home/HomeScreen.kt:335:63 Unresolved reference: LinearOutSlowInEasing
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/home/HomeScreen.kt:362:57 Unresolved reference: PathEffect
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:1:2 Unresolved reference: Composable
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:3:22 Unresolved reference: UserPreferences
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:6:17 Unresolved reference: rememberCoroutineScope
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:8:5 Unresolved reference: Scaffold
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:9:26 Unresolved reference: DeepNavy
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:10:9 Cannot infer a type for this parameter. Please specify it explicitly.
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:11:9 Unresolved reference: AnimatedGradientBackground
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:12:24 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:16:13 Unresolved reference: Column
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:17:28 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:19:46 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:20:39 Unresolved reference: Alignment
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:22:17 Unresolved reference: Spacer
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:22:35 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:22:54 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:25:17 Unresolved reference: Box
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:26:32 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:27:35 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:28:31 Unresolved reference: CircleShape
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:29:37 Unresolved reference: LavenderGlow
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:30:35 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:30:39 Unresolved reference: LavenderGlow
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:30:72 Unresolved reference: CircleShape
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:31:40 Unresolved reference: Alignment
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:33:21 Unresolved reference: Icon
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:34:85 Unresolved reference: Star
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:36:32 Unresolved reference: LavenderGlow
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:37:36 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:37:53 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:41:17 Unresolved reference: Spacer
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:41:35 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:41:54 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:43:17 Unresolved reference: Text
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:45:29 Unresolved reference: MaterialTheme
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:46:34 Unresolved reference: FontWeight
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:47:29 Unresolved reference: Color
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:48:33 Unresolved reference: TextAlign
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:51:17 Unresolved reference: Spacer
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:51:35 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:51:54 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:53:17 Unresolved reference: Text
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:55:29 Unresolved reference: MaterialTheme
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:56:29 Unresolved reference: TextSecondary
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:57:33 Unresolved reference: TextAlign
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:58:32 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:58:65 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:61:17 Unresolved reference: Spacer
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:61:35 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:61:54 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:64:17 Unresolved reference: Box
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:65:21 Unresolved reference: Box
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:66:36 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:68:41 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:69:36 Unresolved reference: Alignment
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:70:46 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:71:35 Unresolved reference: RoundedCornerShape
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:71:57 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:72:41 Unresolved reference: LavenderGlow
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:75:21 Unresolved reference: FrostedGlassCard
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:76:36 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:85:43 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:86:45 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:87:39 Unresolved reference: LavenderGlow
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:89:25 Unresolved reference: Column
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:90:29 Unresolved reference: Row
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:91:44 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:92:57 Unresolved reference: Arrangement
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:93:53 Unresolved reference: Alignment
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:95:33 Unresolved reference: Text
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:97:45 Unresolved reference: MaterialTheme
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:98:45 Unresolved reference: Color
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:100:33 Unresolved reference: Text
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:102:45 Unresolved reference: MaterialTheme
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:103:45 Unresolved reference: LavenderGlow
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:104:48 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:105:53 Unresolved reference: LavenderGlow
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:105:86 Unresolved reference: RoundedCornerShape
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:105:107 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:106:65 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:106:82 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:109:29 Unresolved reference: Spacer
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:109:47 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:109:65 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:110:29 Unresolved reference: Text
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:112:41 Unresolved reference: MaterialTheme
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:113:41 Unresolved reference: TextSecondary
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:114:49 Unresolved reference: sp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:120:17 Unresolved reference: Spacer
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:120:35 Unresolved reference: Modifier
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:120:54 Unresolved reference: dp
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:123:17 Unresolved reference: TextButton
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:131:21 Unresolved reference: Text
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:133:33 Unresolved reference: MaterialTheme
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/monetization/MonetizationScreen.kt:134:33 Unresolved reference: TextSecondary
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+30 actionable tasks: 2 executed, 28 up-to-date
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 5s

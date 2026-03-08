@@ -1,0 +1,7 @@
+nul
+Sujood/app/build/
+Sujood/local.properties
+.gradle/
+*.iml
+.idea/
+Sujrc/

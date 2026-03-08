@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sujood</string>
+    <string name="prayer_fajr">Fajr</string>
+    <string name="prayer_dhuhr">Dhuhr</string>
+    <string name="prayer_asr">Asr</string>
+    <string name="prayer_maghrib">Maghrib</string>
+    <string name="prayer_isha">Isha</string>
+    <string name="next_prayer">Next Prayer</string>
+    <string name="i_prayed">I Prayed ✓</string>
+    <string name="time_for_prayer">Time for %1$s</string>
+    <string name="greeting_morning">Assalamu Alaikum</string>
+    <string name="notification_channel_name">Prayer Times</string>
+    <string name="notification_channel_description">Notifications for prayer times</string>
+    <string name="overlay_channel_name">Prayer Lock</string>
+    <string name="overlay_channel_description">Full screen prayer reminder</string>
+</resources>
