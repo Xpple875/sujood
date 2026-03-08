@@ -96,7 +96,8 @@ class GetNextPrayerUseCase {
     data class NextPrayerInfo(
         val prayer: Prayer,
         val timeRemainingMillis: Long,
-        val prayerTime: PrayerTime
+        val prayerTime: PrayerTime,
+        val isCurrentPrayer: Boolean = false
     )
 
     /**

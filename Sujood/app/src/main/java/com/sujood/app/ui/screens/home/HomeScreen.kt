@@ -191,8 +191,8 @@ fun HomeScreen(
                     // ── PRAYER ROWS ──
                     itemsIndexed(uiState.prayerTimes) { index, prayerTime ->
                         val isCompleted = uiState.completedPrayersToday.contains(prayerTime.prayer)
-                        val isCurrent = uiState.nextPrayerInfo?.isCurrentPrayer == true &&
-                                uiState.nextPrayerInfo?.prayer == prayerTime.prayer
+                        val np = uiState.nextPrayerInfo
+                        val isCurrent = np != null && np.isCurrentPrayer && np.prayer == prayerTime.prayer
 
                         AnimatedVisibility(
                             visible = visible,
@@ -372,7 +372,7 @@ private fun SunArcWidget(
 
     // "Time for Dhuhr" pill label
     val pillText = when {
-        nextPrayerInfo?.isCurrentPrayer == true -> "Time for ${nextPrayerInfo.prayer.displayName}"
+        nextPrayerInfo != null && nextPrayerInfo.isCurrentPrayer -> "Time for ${nextPrayerInfo.prayer.displayName}"
         nextPrayerInfo != null -> "Next: ${nextPrayerInfo.prayer.displayName}"
         else -> ""
     }
