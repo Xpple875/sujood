@@ -77,7 +77,8 @@ class PrayerLockOverlayService : Service() {
             }
 
             // Audio / vibration
-            if (settings.adhanEnabled)    launch(Dispatchers.Main) { playAdhan() }
+            val adhanUrl = settings.adhanSoundUrl.ifEmpty { "https://cdn.islamic.network/quran/audio/128/ar.alafasy/1.mp3" }
+            if (settings.adhanEnabled)    launch(Dispatchers.Main) { playAdhan(adhanUrl) }
             if (settings.vibrationEnabled) launch(Dispatchers.Main) { vibrateDevice() }
 
             // Show overlay on main thread
@@ -230,7 +231,7 @@ class PrayerLockOverlayService : Service() {
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build()
                 )
-                setDataSource(adhanUrl)
+                setDataSource(adhanUrl as String)
                 isLooping = false
                 prepareAsync()
                 setOnPreparedListener { it.start() }
