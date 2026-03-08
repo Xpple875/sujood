@@ -12,14 +12,26 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,454 +46,337 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.sujood.app.data.local.datastore.UserPreferences
+import com.sujood.app.ui.components.AnimatedGradientBackground
 import com.sujood.app.ui.theme.LavenderGlow
 import com.sujood.app.ui.theme.SoftPurple
 import com.sujood.app.ui.theme.TextSecondary
 import com.sujood.app.ui.theme.WarmAmber
-import kotlinx.coroutines.flow.first
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlinx.coroutines.flow.first
 
-private val PrimaryBlue    = Color(0xFF1132D4)
-private val BackgroundDark = Color(0xFF101322)
-private val CardBg         = Color(0xFF0D1020)
-private val GlassStroke    = Color(0xFFFFFFFF).copy(alpha = 0.06f)
+// Low-pass filter strength: 0.10 = very smooth, 0.25 = balanced, 0.4 = responsive
+// 0.12 eliminates jitter while still tracking normal hand movement well
+private const val LP_ALPHA = 0.12f
 
-// Low-pass filter alpha: 0.1 = very smooth (slow to respond), 0.3 = balanced
-private const val LP_ALPHA = 0.15f
-
-/** Shortest-path interpolation for angles so we never spin the wrong way around 360 */
-private fun shortestAngleDiff(from: Float, to: Float): Float {
-    var diff = (to - from + 540f) % 360f - 180f
-    return diff
+/** Apply a standard IIR low-pass filter to a sensor reading array. */
+private fun lowPassFilter(input: FloatArray, prev: FloatArray?): FloatArray {
+    if (prev == null) return input.clone()
+    return FloatArray(input.size) { i -> prev[i] + LP_ALPHA * (input[i] - prev[i]) }
 }
+
+/** Returns the shortest signed angular difference from -> to, in [-180, 180]. */
+private fun shortestDelta(from: Float, to: Float): Float =
+    ((to - from + 540f) % 360f) - 180f
 
 @Composable
 fun QiblaScreen() {
     val context = LocalContext.current
     var userLatitude  by remember { mutableStateOf(0.0) }
     var userLongitude by remember { mutableStateOf(0.0) }
-    // smoothedHeading is the low-pass-filtered compass value we animate
-    var smoothedHeading by remember { mutableFloatStateOf(0f) }
-    var qiblaDirection  by remember { mutableFloatStateOf(277f) }
-    var isCalibrated    by remember { mutableStateOf(false) }
-    var isFacingQibla   by remember { mutableStateOf(false) }
-    var hasLocation     by remember { mutableStateOf(false) }
+
+    // smoothedHeading is maintained in the sensor callback via LP filter
+    var smoothedHeading  by remember { mutableFloatStateOf(0f) }
+    var qiblaDirection   by remember { mutableFloatStateOf(277f) }
+    var isCalibrated     by remember { mutableStateOf(false) }
+    var isFacingQibla    by remember { mutableStateOf(false) }
+    var hasLocation      by remember { mutableStateOf(false) }
 
     val userPreferences = remember { UserPreferences(context) }
 
-    // ── Location lookup ──
+    // ── Location ──────────────────────────────────────────────────────────
     LaunchedEffect(Unit) {
         userPreferences.userSettings.first().let { settings ->
             if (settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0) {
-                userLatitude  = settings.savedLatitude
-                userLongitude = settings.savedLongitude
-                hasLocation   = true
-                qiblaDirection = calculateQiblaDirection(userLatitude, userLongitude, KAABA_LATITUDE, KAABA_LONGITUDE)
+                userLatitude   = settings.savedLatitude
+                userLongitude  = settings.savedLongitude
+                hasLocation    = true
+                qiblaDirection = calculateQiblaDirection(userLatitude, userLongitude, KAABA_LAT, KAABA_LON)
             } else {
                 try {
-                    val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                    val lm  = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
                     val loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
                         ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
                     if (loc != null) {
-                        userLatitude  = loc.latitude
-                        userLongitude = loc.longitude
-                        hasLocation   = true
-                        qiblaDirection = calculateQiblaDirection(userLatitude, userLongitude, KAABA_LATITUDE, KAABA_LONGITUDE)
+                        userLatitude   = loc.latitude
+                        userLongitude  = loc.longitude
+                        hasLocation    = true
+                        qiblaDirection = calculateQiblaDirection(userLatitude, userLongitude, KAABA_LAT, KAABA_LON)
                     }
-                } catch (e: SecurityException) { }
+                } catch (_: SecurityException) {}
             }
         }
     }
 
-    // ── Compass sensor with LOW-PASS FILTER to kill jitter ──
+    // ── Compass sensor ────────────────────────────────────────────────────
+    // Uses the ORIGINAL working approach from this commit:
+    //   getRotationMatrix(r, i, gravity, geomagnetic)
+    //   getOrientation(r, orientation)          ← no remapCoordinateSystem
+    // The remapCoordinateSystem call added in a previous session was wrong
+    // for portrait-flat phone use and caused the inaccuracy.
+    //
+    // Jitter is eliminated by low-pass filtering the raw sensor arrays
+    // AND by doing a second LP filter on the heading angle itself.
     DisposableEffect(Unit) {
-        val sensorManager  = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        val accelerometer  = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        val magnetometer   = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+        val sm   = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val accel = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        val mag   = sm.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
 
-        // Raw sensor arrays with their own low-pass buffers
         var filteredGravity: FloatArray?     = null
         var filteredGeomagnetic: FloatArray? = null
 
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 when (event.sensor.type) {
-                    Sensor.TYPE_ACCELEROMETER -> {
-                        filteredGravity = lowPassFilter(event.values.clone(), filteredGravity)
-                    }
-                    Sensor.TYPE_MAGNETIC_FIELD -> {
+                    Sensor.TYPE_ACCELEROMETER  ->
+                        filteredGravity     = lowPassFilter(event.values.clone(), filteredGravity)
+                    Sensor.TYPE_MAGNETIC_FIELD ->
                         filteredGeomagnetic = lowPassFilter(event.values.clone(), filteredGeomagnetic)
-                    }
                 }
-                val g = filteredGravity; val geo = filteredGeomagnetic
-                if (g != null && geo != null) {
-                    val r = FloatArray(9); val iMatrix = FloatArray(9)
-                    if (SensorManager.getRotationMatrix(r, iMatrix, g, geo)) {
-                        val remapped    = FloatArray(9)
-                        SensorManager.remapCoordinateSystem(r, SensorManager.AXIS_X, SensorManager.AXIS_Z, remapped)
-                        val orientation = FloatArray(3)
-                        SensorManager.getOrientation(remapped, orientation)
-                        var azimuth = Math.toDegrees(orientation[0].toDouble()).toFloat()
-                        if (hasLocation) {
-                            val gf = android.hardware.GeomagneticField(
-                                userLatitude.toFloat(), userLongitude.toFloat(), 0f, System.currentTimeMillis()
-                            )
-                            azimuth += gf.declination
-                        }
-                        azimuth = (azimuth + 360) % 360
 
-                        // Apply a second angle-domain low-pass filter to smoothedHeading
-                        val delta = shortestAngleDiff(smoothedHeading, azimuth)
-                        smoothedHeading = (smoothedHeading + LP_ALPHA * delta + 360f) % 360f
+                val g   = filteredGravity     ?: return
+                val geo = filteredGeomagnetic  ?: return
 
-                        isFacingQibla  = calculateAngleDifference(smoothedHeading, qiblaDirection) < 5f
-                        isCalibrated   = true
-                    }
+                val r = FloatArray(9)
+                val i = FloatArray(9)
+                if (!SensorManager.getRotationMatrix(r, i, g, geo)) return
+
+                val orientation = FloatArray(3)
+                // ← original working call, NO remapCoordinateSystem
+                SensorManager.getOrientation(r, orientation)
+
+                var azimuth = Math.toDegrees(orientation[0].toDouble()).toFloat()
+
+                // Apply magnetic declination correction when we have a real location
+                if (hasLocation) {
+                    val gf = android.hardware.GeomagneticField(
+                        userLatitude.toFloat(), userLongitude.toFloat(),
+                        0f, System.currentTimeMillis()
+                    )
+                    azimuth += gf.declination
                 }
+
+                azimuth = (azimuth + 360f) % 360f
+
+                // Angle-domain LP filter — blend toward azimuth via shortest path
+                val delta = shortestDelta(smoothedHeading, azimuth)
+                smoothedHeading = (smoothedHeading + LP_ALPHA * delta + 360f) % 360f
+
+                isFacingQibla = calculateAngleDiff(smoothedHeading, qiblaDirection) < 5f
+                isCalibrated  = true
             }
+
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
                 isCalibrated = accuracy >= SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM
             }
         }
 
-        // SENSOR_DELAY_UI is fine — the LP filter does the smoothing
-        accelerometer?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
-        magnetometer?.let  { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
-        onDispose { sensorManager.unregisterListener(listener) }
+        accel?.let { sm.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
+        mag?.let   { sm.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
+        onDispose  { sm.unregisterListener(listener) }
     }
 
-    // Animate the already-smoothed heading — use a snappy spring so it tracks fast but not twitchy
+    // Animate the already-smoothed heading — snappy but not bouncy
     val animatedHeading by animateFloatAsState(
         targetValue  = smoothedHeading,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness    = Spring.StiffnessMediumLow
         ),
-        label = "headingAnimation"
+        label = "heading"
     )
-    val needleRotation = (qiblaDirection - animatedHeading + 360) % 360
 
-    // ── UI ──
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BackgroundDark)
-    ) {
-        Box(modifier = Modifier.fillMaxSize().background(
-            brush = Brush.radialGradient(
-                listOf(PrimaryBlue.copy(alpha = 0.12f), Color.Transparent),
-                center = Offset(0f, 0f), radius = 900f
+    val needleRotation = (qiblaDirection - animatedHeading + 360f) % 360f
+
+    // ── UI (unchanged from original commit) ───────────────────────────────
+    AnimatedGradientBackground(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "Qibla Direction",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Light,
+                color = Color.White
             )
-        ))
-        Box(modifier = Modifier.fillMaxSize().background(
-            brush = Brush.radialGradient(
-                listOf(Color(0xFF312E81).copy(alpha = 0.18f), Color.Transparent),
-                center = Offset(Float.MAX_VALUE, Float.MAX_VALUE), radius = 900f
-            )
-        ))
 
-        Column(modifier = Modifier.fillMaxSize()) {
-
-            // ── Header ──
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.07f))
-                        .border(1.dp, GlassStroke, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back",
-                        tint = Color.White, modifier = Modifier.size(20.dp))
-                }
-
-                Text("Qibla Direction", style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold, color = Color.White)
-
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.07f))
-                        .border(1.dp, GlassStroke, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.MyLocation, "Re-locate",
-                        tint = Color.White, modifier = Modifier.size(20.dp))
-                }
-            }
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = when {
-                    !hasLocation -> "⚠️ No location — open Home tab first"
-                    else         -> "Based on your current location"
+                    hasLocation -> "Based on your current location"
+                    else        -> "⚠️ No location found — open Home tab first"
                 },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (hasLocation) TextSecondary else WarmAmber,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (hasLocation) TextSecondary else WarmAmber
             )
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
+            Spacer(modifier = Modifier.height(48.dp))
+
+            // ── Compass widget ──
+            Box(modifier = Modifier.size(300.dp), contentAlignment = Alignment.Center) {
+
+                // Outer glow ring
                 Box(
                     modifier = Modifier
-                        .size(360.dp)
+                        .size(300.dp)
+                        .scale(if (isFacingQibla) 1.05f else 1f)
                         .clip(CircleShape)
                         .background(
                             brush = Brush.radialGradient(
-                                listOf(PrimaryBlue.copy(alpha = 0.12f), Color.Transparent)
+                                colors = listOf(
+                                    if (isFacingQibla) WarmAmber.copy(alpha = 0.25f)
+                                    else SoftPurple.copy(alpha = 0.15f),
+                                    Color.Transparent
+                                )
                             )
                         )
                 )
 
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier.size(290.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(290.dp)
-                                .scale(if (isFacingQibla) 1.05f else 1f)
-                                .clip(CircleShape)
-                                .background(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(
-                                            if (isFacingQibla) WarmAmber.copy(alpha = 0.25f)
-                                            else SoftPurple.copy(alpha = 0.15f),
-                                            Color.Transparent
-                                        )
-                                    )
-                                )
-                        )
-
-                        Canvas(modifier = Modifier.size(280.dp)) {
-                            drawCircle(color = Color.White.copy(alpha = 0.07f),
-                                radius = size.minDimension / 2, style = Stroke(width = 1.dp.toPx()))
-                            drawCircle(color = Color.White.copy(alpha = 0.12f),
-                                radius = size.minDimension / 2 - 8f, style = Stroke(width = 1.dp.toPx()))
-                            drawCircle(color = Color.White.copy(alpha = 0.20f),
-                                radius = size.minDimension / 2 - 18f, style = Stroke(width = 1.5f))
-                            drawCircle(color = Color.White.copy(alpha = 0.03f),
-                                radius = size.minDimension / 2 - 20)
-                            listOf(0f, 90f, 180f, 270f).forEach { angle ->
-                                val radian  = Math.toRadians((angle - 90).toDouble())
-                                val outerR  = size.minDimension / 2
-                                val innerR  = outerR - 20
-                                drawLine(
-                                    color = Color.White.copy(alpha = 0.35f),
-                                    start = Offset(size.width/2 + outerR * cos(radian).toFloat(),
-                                        size.height/2 + outerR * sin(radian).toFloat()),
-                                    end   = Offset(size.width/2 + innerR * cos(radian).toFloat(),
-                                        size.height/2 + innerR * sin(radian).toFloat()),
-                                    strokeWidth = 3f
-                                )
-                            }
-                        }
-
-                        Canvas(modifier = Modifier.size(200.dp).rotate(needleRotation)) {
-                            val cx = size.width / 2; val cy = size.height / 2
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        if (isFacingQibla) WarmAmber.copy(alpha = 0.3f) else LavenderGlow.copy(alpha = 0.2f),
-                                        Color.Transparent
-                                    ),
-                                    center = Offset(cx, cy - 55f), radius = 30f
-                                ),
-                                radius = 30f, center = Offset(cx, cy - 55f)
-                            )
-                            val needlePath = Path().apply {
-                                moveTo(cx, cy - 80)
-                                lineTo(cx - 12, cy + 24)
-                                lineTo(cx, cy + 14)
-                                lineTo(cx + 12, cy + 24)
-                                close()
-                            }
-                            drawPath(
-                                path = needlePath,
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        if (isFacingQibla) WarmAmber else LavenderGlow,
-                                        if (isFacingQibla) WarmAmber.copy(alpha = 0.4f) else SoftPurple.copy(alpha = 0.4f)
-                                    )
-                                )
-                            )
-                            drawCircle(color = Color.White, radius = 8f, center = Offset(cx, cy))
-                            drawCircle(color = if (isFacingQibla) WarmAmber else SoftPurple, radius = 4f, center = Offset(cx, cy))
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .padding(top = 12.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFFBBF24).copy(alpha = 0.12f))
-                                .border(1.dp, Color(0xFFFBBF24).copy(alpha = 0.45f), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 10.dp, vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Canvas(modifier = Modifier.size(22.dp)) {
-                                val w = size.width; val h = size.height
-                                drawRect(color = Color.Black, size = androidx.compose.ui.geometry.Size(w, h * 0.75f),
-                                    topLeft = Offset(0f, h * 0.25f))
-                                drawRect(color = Color(0xFFFFD700),
-                                    size = androidx.compose.ui.geometry.Size(w, h * 0.1f),
-                                    topLeft = Offset(0f, h * 0.4f))
-                                drawRect(color = Color(0xFFFFD700).copy(alpha = 0.6f),
-                                    size = androidx.compose.ui.geometry.Size(w * 0.22f, h * 0.28f),
-                                    topLeft = Offset(w * 0.39f, h * 0.47f))
-                                drawArc(color = Color(0xFFFBBF24).copy(alpha = 0.7f),
-                                    startAngle = 180f, sweepAngle = 180f, useCenter = true,
-                                    size = androidx.compose.ui.geometry.Size(w * 0.4f, h * 0.3f),
-                                    topLeft = Offset(w * 0.3f, 0f))
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(36.dp))
-
-                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.Center) {
-                        Text(
-                            text = if (isFacingQibla) "✓" else "${qiblaDirection.roundToInt()}°",
-                            fontSize = 52.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
-                        )
-                        if (!isFacingQibla) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "from North",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = TextSecondary,
-                                modifier = Modifier.padding(bottom = 10.dp)
-                            )
-                        } else {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Facing Qibla", fontSize = 18.sp,
-                                fontWeight = FontWeight.Medium, color = WarmAmber,
-                                modifier = Modifier.padding(bottom = 10.dp))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = if (isFacingQibla)
-                            "May Allah accept your prayer."
-                        else
-                            "Rotate your phone until the arrow\npoints North to find the Qibla",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 22.sp,
-                        modifier = Modifier.padding(horizontal = 32.dp)
+                // Static compass ring + cardinal tick marks
+                Canvas(modifier = Modifier.size(280.dp)) {
+                    drawCircle(
+                        color  = Color.White.copy(alpha = 0.12f),
+                        radius = size.minDimension / 2,
+                        style  = Stroke(width = 2f)
                     )
-
-                    if (!isCalibrated) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "⚠️ Move phone in figure-8 to calibrate",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = WarmAmber, textAlign = TextAlign.Center
+                    drawCircle(
+                        color  = Color.White.copy(alpha = 0.04f),
+                        radius = size.minDimension / 2 - 20
+                    )
+                    listOf(0f, 90f, 180f, 270f).forEach { angle ->
+                        val rad    = Math.toRadians((angle - 90).toDouble())
+                        val outerR = size.minDimension / 2
+                        val innerR = outerR - 20
+                        drawLine(
+                            color       = Color.White.copy(alpha = 0.35f),
+                            start       = Offset(size.width / 2 + outerR * cos(rad).toFloat(),
+                                                 size.height / 2 + outerR * sin(rad).toFloat()),
+                            end         = Offset(size.width / 2 + innerR * cos(rad).toFloat(),
+                                                 size.height / 2 + innerR * sin(rad).toFloat()),
+                            strokeWidth = 3f
                         )
                     }
                 }
-            }
 
-            // ── Footer ──
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(BackgroundDark.copy(alpha = 0.6f))
-                    .padding(horizontal = 24.dp, vertical = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(
+                // Rotating needle
+                Canvas(modifier = Modifier.size(200.dp).rotate(needleRotation)) {
+                    val cx = size.width / 2; val cy = size.height / 2
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                if (isFacingQibla) WarmAmber.copy(alpha = 0.3f) else LavenderGlow.copy(alpha = 0.2f),
+                                Color.Transparent
+                            ),
+                            center = Offset(cx, cy - 55f), radius = 30f
+                        ),
+                        radius = 30f, center = Offset(cx, cy - 55f)
+                    )
+                    val needlePath = Path().apply {
+                        moveTo(cx, cy - 80)
+                        lineTo(cx - 12, cy + 24)
+                        lineTo(cx, cy + 14)
+                        lineTo(cx + 12, cy + 24)
+                        close()
+                    }
+                    drawPath(
+                        path  = needlePath,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                if (isFacingQibla) WarmAmber else LavenderGlow,
+                                if (isFacingQibla) WarmAmber.copy(alpha = 0.4f) else SoftPurple.copy(alpha = 0.4f)
+                            )
+                        )
+                    )
+                    drawCircle(color = Color.White, radius = 8f, center = Offset(cx, cy))
+                    drawCircle(
+                        color  = if (isFacingQibla) WarmAmber else SoftPurple,
+                        radius = 4f, center = Offset(cx, cy)
+                    )
+                }
+
+                // Kaaba marker at top (static)
+                Box(
                     modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 16.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.05f))
-                        .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        .background(
+                            if (isFacingQibla) WarmAmber.copy(alpha = 0.25f)
+                            else Color.White.copy(alpha = 0.08f)
+                        )
+                        .border(
+                            1.dp,
+                            if (isFacingQibla) WarmAmber.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.2f),
+                            CircleShape
+                        )
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(PrimaryBlue.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
+                            .size(18.dp)
+                            .background(Color.Black, RoundedCornerShape(2.dp))
+                            .border(1.dp, Color(0xFFFFD700).copy(alpha = 0.5f), RoundedCornerShape(2.dp)),
+                        contentAlignment = Alignment.TopCenter
                     ) {
-                        Text("📍", fontSize = 14.sp)
-                    }
-                    Column {
-                        Text(
-                            text = "DESTINATION",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.5.sp,
-                            color = TextSecondary
-                        )
-                        Text(
-                            text = "Kaaba, Makkah Al-Mukarramah",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = 4.dp)
+                                .background(Color(0xFFFFD700))
+                                .size(3.dp)
                         )
                     }
                 }
-
-                Text(
-                    text = "21.4225° N,  39.8262° E",
-                    fontSize = 11.sp,
-                    color = TextSecondary.copy(alpha = 0.6f),
-                    fontWeight = FontWeight.Light,
-                    letterSpacing = 0.5.sp
-                )
-
-                Box(
-                    modifier = Modifier
-                        .width(48.dp)
-                        .height(2.dp)
-                        .clip(RoundedCornerShape(1.dp))
-                        .background(PrimaryBlue)
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
             }
-        }
-    }
-}
 
-/** Standard IIR low-pass filter for sensor arrays */
-private fun lowPassFilter(input: FloatArray, output: FloatArray?): FloatArray {
-    if (output == null) return input
-    return FloatArray(input.size) { i ->
-        output[i] + LP_ALPHA * (input[i] - output[i])
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Text(
+                text  = if (isFacingQibla) "✓ Facing Qibla" else "${qiblaDirection.roundToInt()}° from North",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Medium,
+                color = if (isFacingQibla) WarmAmber else LavenderGlow
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = if (isFacingQibla)
+                    "You are facing the Kaaba. May Allah accept your prayer."
+                else
+                    "Rotate your phone until the arrow points North, then face that direction",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp)
+            )
+
+            if (!isCalibrated) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text  = "⚠️ Calibrate compass — move phone in figure-8 pattern",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WarmAmber,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            Spacer(modifier = Modifier.height(40.dp))
+            Text("Kaaba, Makkah Al-Mukarramah",
+                style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.8f))
+            Spacer(modifier = Modifier.height(4.dp))
+            Text("21.4225° N, 39.8262° E",
+                style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            Spacer(modifier = Modifier.height(80.dp))
+        }
     }
 }
 
@@ -491,14 +386,14 @@ private fun calculateQiblaDirection(lat1: Double, lon1: Double, lat2: Double, lo
     val lat2Rad = Math.toRadians(lat2)
     val y = sin(dLon) * cos(lat2Rad)
     val x = cos(lat1Rad) * sin(lat2Rad) - sin(lat1Rad) * cos(lat2Rad) * cos(dLon)
-    return ((Math.toDegrees(atan2(y, x)).toFloat()) + 360) % 360
+    return ((Math.toDegrees(atan2(y, x)).toFloat()) + 360f) % 360f
 }
 
-private fun calculateAngleDifference(angle1: Float, angle2: Float): Float {
-    var diff = kotlin.math.abs(angle1 - angle2)
-    if (diff > 180) diff = 360 - diff
-    return diff
+private fun calculateAngleDiff(a1: Float, a2: Float): Float {
+    var d = kotlin.math.abs(a1 - a2)
+    if (d > 180f) d = 360f - d
+    return d
 }
 
-private const val KAABA_LATITUDE  = 21.4225
-private const val KAABA_LONGITUDE = 39.8262
+private const val KAABA_LAT = 21.4225
+private const val KAABA_LON = 39.8262
