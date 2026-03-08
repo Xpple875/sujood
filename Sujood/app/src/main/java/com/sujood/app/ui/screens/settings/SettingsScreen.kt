@@ -55,7 +55,6 @@ import com.sujood.app.SujoodApplication
 import com.sujood.app.data.api.RetrofitClient
 import com.sujood.app.data.repository.PrayerTimesRepository
 import com.sujood.app.notifications.PrayerAlarmScheduler
-import com.sujood.app.data.local.datastore.UserPreferences
 import com.sujood.app.domain.model.CalculationMethod
 import com.sujood.app.domain.model.LockMode
 import com.sujood.app.domain.model.Madhab
