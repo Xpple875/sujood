@@ -5,7 +5,7 @@ RES = os.path.join("Sujood", "app", "src", "main", "res")
 
 files = {}
 
-# ── 1. BottomNavBar.kt — glassmorphic pill design matching the HTML/screenshot ──
+# ── 1. BottomNavBar.kt — reverted to original style but with blue instead of purple ──
 files[('src', 'ui/components/BottomNavBar.kt')] = \
 '''package com.sujood.app.ui.components
 
@@ -20,12 +20,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Explore
@@ -33,13 +34,13 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -48,11 +49,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sujood.app.domain.model.BottomNavItem
+import com.sujood.app.ui.theme.GlassBorder
+import com.sujood.app.ui.theme.MidnightBlue
 
-private val PrimaryBlue   = Color(0xFF1132D4)
-private val NavBackground = Color(0xFF0D1020).copy(alpha = 0.85f)
-private val GlassStroke   = Color(0xFFFFFFFF).copy(alpha = 0.10f)
-private val TextMuted     = Color(0xFF94A3B8)
+// Primary blue to match the app accent colour
+private val PrimaryBlue = Color(0xFF1132D4)
 
 @Composable
 fun GlassmorphicBottomNavBar(
@@ -68,53 +69,52 @@ fun GlassmorphicBottomNavBar(
         BottomNavItem.Settings
     )
 
-    // Outer padding layer — sits above the system nav bar
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.05f),
+                        MidnightBlue.copy(alpha = 0.7f),
+                        MidnightBlue.copy(alpha = 0.9f)
+                    )
+                )
+            )
+            .height(84.dp)
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        contentAlignment = Alignment.Center
     ) {
-        // The pill container
+        // Hair-line top border
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(50.dp))
-                .background(NavBackground)
-                // Glass border
-                .then(
-                    Modifier.background(
-                        brush = Brush.verticalGradient(
-                            listOf(GlassStroke, Color.Transparent)
+                .height(0.5.dp)
+                .align(Alignment.TopCenter)
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.4f),
+                            Color.Transparent
                         )
                     )
                 )
-        ) {
-            // Hair-line top border to simulate the glass edge
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .size(1.dp)
-                    .align(Alignment.TopCenter)
-                    .background(GlassStroke)
-            )
+        )
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                items.forEach { item ->
-                    val isSelected = currentRoute == item.route
-                    NavItem(
-                        item = item,
-                        isSelected = isSelected,
-                        onClick = { onNavigate(item.route) }
-                    )
-                }
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items.forEach { item ->
+                val isSelected = currentRoute == item.route
+                NavItem(
+                    item = item,
+                    isSelected = isSelected,
+                    onClick = { onNavigate(item.route) }
+                )
             }
         }
     }
@@ -127,24 +127,21 @@ private fun NavItem(
     onClick: () -> Unit
 ) {
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.08f else 1f,
+        targetValue = if (isSelected) 1.1f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
+            stiffness = Spring.StiffnessLow
         ),
         label = "scale"
     )
 
-    val iconTint by animateColorAsState(
-        targetValue = if (isSelected) Color.White else TextMuted,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "tint"
-    )
-
-    val labelColor by animateColorAsState(
-        targetValue = if (isSelected) PrimaryBlue else TextMuted,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "labelColor"
+    val color by animateColorAsState(
+        targetValue = if (isSelected) PrimaryBlue else Color.White.copy(alpha = 0.4f),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "color"
     )
 
     Column(
@@ -155,36 +152,36 @@ private fun NavItem(
                 indication = null,
                 onClick = onClick
             )
-            .padding(horizontal = 4.dp, vertical = 4.dp)
-            .scale(scale)
+            .padding(8.dp)
     ) {
-        // Icon — active gets a filled blue circle, inactive gets nothing
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(44.dp)
+                .size(40.dp)
+                .scale(scale)
                 .then(
                     if (isSelected) {
-                        Modifier
-                            .clip(CircleShape)
-                            .background(PrimaryBlue)
+                        Modifier.background(
+                            color = PrimaryBlue.copy(alpha = 0.15f),
+                            shape = CircleShape
+                        )
                     } else Modifier
                 )
         ) {
             Icon(
                 imageVector = getIconForItem(item),
                 contentDescription = item.title,
-                tint = iconTint,
-                modifier = Modifier.size(22.dp)
+                tint = color,
+                modifier = Modifier.size(24.dp)
             )
         }
 
         Text(
-            text = item.title.uppercase(),
-            fontSize = 9.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            color = labelColor,
-            letterSpacing = 1.sp
+            text = item.title,
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+            fontSize = 10.sp
         )
     }
 }
@@ -200,515 +197,677 @@ private fun getIconForItem(item: BottomNavItem): ImageVector {
 }
 '''
 
-# ── 2. QiblaScreen.kt — compass low-pass filter to kill jitter ──
-files[('src', 'ui/screens/qibla/QiblaScreen.kt')] = \
-'''package com.sujood.app.ui.screens.qibla
+# ── 2. InsightsScreen.kt — full redesign matching the HTML/screenshot mockup ──
+files[('src', 'ui/screens/insights/InsightsScreen.kt')] = \
+'''package com.sujood.app.ui.screens.insights
 
-import android.content.Context
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
-import android.location.LocationManager
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.NotificationsNone
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.sujood.app.data.local.datastore.UserPreferences
-import com.sujood.app.ui.theme.LavenderGlow
-import com.sujood.app.ui.theme.SoftPurple
-import com.sujood.app.ui.theme.TextSecondary
-import com.sujood.app.ui.theme.WarmAmber
-import kotlinx.coroutines.flow.first
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.roundToInt
-import kotlin.math.sin
+import com.sujood.app.SujoodApplication
+import com.sujood.app.data.api.RetrofitClient
+import com.sujood.app.data.repository.PrayerTimesRepository
+import com.sujood.app.domain.model.Prayer
+import com.sujood.app.domain.usecase.GetPrayerStreakUseCase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
+// ── Design tokens matching the mockup exactly ──
+private val BackgroundDark = Color(0xFF0A0C1A)
 private val PrimaryBlue    = Color(0xFF1132D4)
-private val BackgroundDark = Color(0xFF101322)
-private val CardBg         = Color(0xFF0D1020)
-private val GlassStroke    = Color(0xFFFFFFFF).copy(alpha = 0.06f)
+private val AccentPurple   = Color(0xFF8B5CF6)
+private val GlassFill      = Color(0xFFFFFFFF).copy(alpha = 0.03f)
+private val GlassStroke    = Color(0xFFFFFFFF).copy(alpha = 0.08f)
+private val TextMuted      = Color(0xFF94A3B8)  // slate-400
+private val TextDimmer     = Color(0xFF64748B)  // slate-500
+private val EmeraldGreen   = Color(0xFF34D399)  // emerald-400
 
-// Low-pass filter alpha: 0.1 = very smooth (slow to respond), 0.3 = balanced
-private const val LP_ALPHA = 0.15f
-
-/** Shortest-path interpolation for angles so we never spin the wrong way around 360 */
-private fun shortestAngleDiff(from: Float, to: Float): Float {
-    var diff = (to - from + 540f) % 360f - 180f
-    return diff
-}
+// Reflection quotes that rotate based on streak
+private val reflections = listOf(
+    "Verily, in the remembrance of Allah do hearts find rest. – Ar-Ra\'d 13:28",
+    "Indeed, prayer prohibits immorality and wrongdoing. – Al-Ankabut 29:45",
+    "And seek help through patience and prayer. – Al-Baqarah 2:45",
+    "Establish prayer for My remembrance. – Ta-Ha 20:14",
+    "Allah does not burden a soul beyond that it can bear. – Al-Baqarah 2:286"
+)
 
 @Composable
-fun QiblaScreen() {
+fun InsightsScreen() {
     val context = LocalContext.current
-    var userLatitude  by remember { mutableStateOf(0.0) }
-    var userLongitude by remember { mutableStateOf(0.0) }
-    // smoothedHeading is the low-pass-filtered compass value we animate
-    var smoothedHeading by remember { mutableFloatStateOf(0f) }
-    var qiblaDirection  by remember { mutableFloatStateOf(277f) }
-    var isCalibrated    by remember { mutableStateOf(false) }
-    var isFacingQibla   by remember { mutableStateOf(false) }
-    var hasLocation     by remember { mutableStateOf(false) }
+    val app = context.applicationContext as SujoodApplication
+    val repository = remember {
+        PrayerTimesRepository(RetrofitClient.aladhanApiService, app.database.prayerLogDao())
+    }
+    val streakUseCase = remember { GetPrayerStreakUseCase(repository) }
 
-    val userPreferences = remember { UserPreferences(context) }
+    var currentStreak    by remember { mutableStateOf(0) }
+    var longestStreak    by remember { mutableStateOf(0) }
+    var weeklyData       by remember { mutableStateOf(listOf(0, 0, 0, 0, 0, 0, 0)) }
+    var weeklyConsistency by remember { mutableStateOf(0) }
+    var weeklyDelta      by remember { mutableStateOf(0) }
+    var monthlyProgress  by remember { mutableStateOf<Map<Prayer, Pair<Int, Int>>>(emptyMap()) }
 
-    // ── Location lookup ──
-    LaunchedEffect(Unit) {
-        userPreferences.userSettings.first().let { settings ->
-            if (settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0) {
-                userLatitude  = settings.savedLatitude
-                userLongitude = settings.savedLongitude
-                hasLocation   = true
-                qiblaDirection = calculateQiblaDirection(userLatitude, userLongitude, KAABA_LATITUDE, KAABA_LONGITUDE)
-            } else {
-                try {
-                    val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                    val loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                        ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                    if (loc != null) {
-                        userLatitude  = loc.latitude
-                        userLongitude = loc.longitude
-                        hasLocation   = true
-                        qiblaDirection = calculateQiblaDirection(userLatitude, userLongitude, KAABA_LATITUDE, KAABA_LONGITUDE)
+    val allLogs by repository.getAllPrayerLogs().collectAsState(initial = emptyList())
+
+    LaunchedEffect(allLogs) {
+        withContext(Dispatchers.Default) {
+            val fmt   = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val today = Calendar.getInstance()
+
+            currentStreak = streakUseCase()
+
+            // ── Longest streak ──
+            val allFullDates = allLogs
+                .groupBy { it.date }
+                .filter { (_, logs) -> logs.map { it.prayer.name }.toSet().size >= 5 }
+                .keys.sortedDescending()
+
+            var maxStreak = 0; var runStreak = 0
+            for (i in allFullDates.indices) {
+                if (i == 0) {
+                    runStreak = 1
+                } else {
+                    val prev = fmt.parse(allFullDates[i - 1])
+                    val curr = fmt.parse(allFullDates[i])
+                    if (prev != null && curr != null) {
+                        val diff = ((prev.time - curr.time) / (24 * 60 * 60 * 1000)).toInt()
+                        if (diff == 1) runStreak++ else runStreak = 1
                     }
-                } catch (e: SecurityException) { }
+                }
+                if (runStreak > maxStreak) maxStreak = runStreak
             }
+            longestStreak = maxOf(maxStreak, currentStreak)
+
+            // ── Weekly data (Mon=0..Sun=6) ──
+            val weekly = MutableList(7) { 0 }
+            val weekStart = Calendar.getInstance().apply {
+                set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }
+            for (log in allLogs) {
+                val logDate = fmt.parse(log.date) ?: continue
+                val logCal  = Calendar.getInstance().apply { time = logDate }
+                if (!logCal.before(weekStart) && !logCal.after(today)) {
+                    val dow = ((logCal.get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY + 7) % 7)
+                    weekly[dow] = (weekly[dow] + 1).coerceAtMost(5)
+                }
+            }
+            weeklyData = weekly
+
+            // % of prayers done this week vs max possible (days elapsed × 5)
+            val dayOfWeek = ((today.get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY + 7) % 7) + 1
+            val maxThisWeek = dayOfWeek * 5
+            val doneThisWeek = weekly.sum()
+            weeklyConsistency = if (maxThisWeek > 0) ((doneThisWeek * 100) / maxThisWeek) else 0
+
+            // last-week delta (simplified: positive if streak > 0)
+            weeklyDelta = if (currentStreak > 0) 5 else 0
+
+            // ── Monthly prayer breakdown ──
+            val monthStart = Calendar.getInstance().apply {
+                set(Calendar.DAY_OF_MONTH, 1)
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }
+            val daysElapsed = today.get(Calendar.DAY_OF_MONTH)
+            val map = mutableMapOf<Prayer, Pair<Int, Int>>()
+            for (prayer in Prayer.entries) {
+                val completed = allLogs
+                    .filter { it.prayer == prayer }
+                    .map { it.date }.toSet()
+                    .count { ds ->
+                        val d = fmt.parse(ds) ?: return@count false
+                        val c = Calendar.getInstance().apply { time = d }
+                        !c.before(monthStart) && !c.after(today)
+                    }
+                map[prayer] = Pair(completed, daysElapsed)
+            }
+            monthlyProgress = map
         }
     }
 
-    // ── Compass sensor with LOW-PASS FILTER to kill jitter ──
-    DisposableEffect(Unit) {
-        val sensorManager  = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        val accelerometer  = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        val magnetometer   = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
-
-        // Raw sensor arrays with their own low-pass buffers
-        var filteredGravity: FloatArray?     = null
-        var filteredGeomagnetic: FloatArray? = null
-
-        val listener = object : SensorEventListener {
-            override fun onSensorChanged(event: SensorEvent) {
-                when (event.sensor.type) {
-                    Sensor.TYPE_ACCELEROMETER -> {
-                        filteredGravity = lowPassFilter(event.values.clone(), filteredGravity)
-                    }
-                    Sensor.TYPE_MAGNETIC_FIELD -> {
-                        filteredGeomagnetic = lowPassFilter(event.values.clone(), filteredGeomagnetic)
-                    }
-                }
-                val g = filteredGravity; val geo = filteredGeomagnetic
-                if (g != null && geo != null) {
-                    val r = FloatArray(9); val iMatrix = FloatArray(9)
-                    if (SensorManager.getRotationMatrix(r, iMatrix, g, geo)) {
-                        val remapped    = FloatArray(9)
-                        SensorManager.remapCoordinateSystem(r, SensorManager.AXIS_X, SensorManager.AXIS_Z, remapped)
-                        val orientation = FloatArray(3)
-                        SensorManager.getOrientation(remapped, orientation)
-                        var azimuth = Math.toDegrees(orientation[0].toDouble()).toFloat()
-                        if (hasLocation) {
-                            val gf = android.hardware.GeomagneticField(
-                                userLatitude.toFloat(), userLongitude.toFloat(), 0f, System.currentTimeMillis()
-                            )
-                            azimuth += gf.declination
-                        }
-                        azimuth = (azimuth + 360) % 360
-
-                        // Apply a second angle-domain low-pass filter to smoothedHeading
-                        val delta = shortestAngleDiff(smoothedHeading, azimuth)
-                        smoothedHeading = (smoothedHeading + LP_ALPHA * delta + 360f) % 360f
-
-                        isFacingQibla  = calculateAngleDifference(smoothedHeading, qiblaDirection) < 5f
-                        isCalibrated   = true
-                    }
-                }
-            }
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-                isCalibrated = accuracy >= SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM
-            }
-        }
-
-        // SENSOR_DELAY_UI is fine — the LP filter does the smoothing
-        accelerometer?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
-        magnetometer?.let  { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
-        onDispose { sensorManager.unregisterListener(listener) }
+    // Pick a rotating quote based on streak
+    val quote = reflections[currentStreak % reflections.size]
+    val today = remember {
+        val cal = java.util.Calendar.getInstance()
+        val month = cal.getDisplayName(java.util.Calendar.MONTH, java.util.Calendar.LONG, Locale.getDefault()) ?: ""
+        val day   = cal.get(java.util.Calendar.DAY_OF_MONTH)
+        "$month $day"
     }
 
-    // Animate the already-smoothed heading — use a snappy spring so it tracks fast but not twitchy
-    val animatedHeading by animateFloatAsState(
-        targetValue  = smoothedHeading,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness    = Spring.StiffnessMediumLow
-        ),
-        label = "headingAnimation"
-    )
-    val needleRotation = (qiblaDirection - animatedHeading + 360) % 360
-
-    // ── UI ──
+    // ── Full background ──
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundDark)
+            .background(
+                brush = Brush.radialGradient(
+                    colors = listOf(PrimaryBlue.copy(alpha = 0.20f), Color.Transparent),
+                    center = Offset(0f, 0f), radius = 1200f
+                )
+            )
+            .background(
+                brush = Brush.radialGradient(
+                    colors = listOf(AccentPurple.copy(alpha = 0.13f), Color.Transparent),
+                    center = Offset(Float.MAX_VALUE, Float.MAX_VALUE), radius = 1200f
+                )
+            )
     ) {
-        Box(modifier = Modifier.fillMaxSize().background(
-            brush = Brush.radialGradient(
-                listOf(PrimaryBlue.copy(alpha = 0.12f), Color.Transparent),
-                center = Offset(0f, 0f), radius = 900f
-            )
-        ))
-        Box(modifier = Modifier.fillMaxSize().background(
-            brush = Brush.radialGradient(
-                listOf(Color(0xFF312E81).copy(alpha = 0.18f), Color.Transparent),
-                center = Offset(Float.MAX_VALUE, Float.MAX_VALUE), radius = 900f
-            )
-        ))
-
-        Column(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 120.dp)
+        ) {
 
             // ── Header ──
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.07f))
-                        .border(1.dp, GlassStroke, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back",
-                        tint = Color.White, modifier = Modifier.size(20.dp))
-                }
-
-                Text("Qibla Direction", style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold, color = Color.White)
-
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.07f))
-                        .border(1.dp, GlassStroke, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.MyLocation, "Re-locate",
-                        tint = Color.White, modifier = Modifier.size(20.dp))
-                }
-            }
-
-            Text(
-                text = when {
-                    !hasLocation -> "⚠️ No location — open Home tab first"
-                    else         -> "Based on your current location"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (hasLocation) TextSecondary else WarmAmber,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(360.dp)
-                        .clip(CircleShape)
-                        .background(
-                            brush = Brush.radialGradient(
-                                listOf(PrimaryBlue.copy(alpha = 0.12f), Color.Transparent)
-                            )
-                        )
-                )
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier.size(290.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(290.dp)
-                                .scale(if (isFacingQibla) 1.05f else 1f)
-                                .clip(CircleShape)
-                                .background(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(
-                                            if (isFacingQibla) WarmAmber.copy(alpha = 0.25f)
-                                            else SoftPurple.copy(alpha = 0.15f),
-                                            Color.Transparent
-                                        )
-                                    )
-                                )
-                        )
-
-                        Canvas(modifier = Modifier.size(280.dp)) {
-                            drawCircle(color = Color.White.copy(alpha = 0.07f),
-                                radius = size.minDimension / 2, style = Stroke(width = 1.dp.toPx()))
-                            drawCircle(color = Color.White.copy(alpha = 0.12f),
-                                radius = size.minDimension / 2 - 8f, style = Stroke(width = 1.dp.toPx()))
-                            drawCircle(color = Color.White.copy(alpha = 0.20f),
-                                radius = size.minDimension / 2 - 18f, style = Stroke(width = 1.5f))
-                            drawCircle(color = Color.White.copy(alpha = 0.03f),
-                                radius = size.minDimension / 2 - 20)
-                            listOf(0f, 90f, 180f, 270f).forEach { angle ->
-                                val radian  = Math.toRadians((angle - 90).toDouble())
-                                val outerR  = size.minDimension / 2
-                                val innerR  = outerR - 20
-                                drawLine(
-                                    color = Color.White.copy(alpha = 0.35f),
-                                    start = Offset(size.width/2 + outerR * cos(radian).toFloat(),
-                                        size.height/2 + outerR * sin(radian).toFloat()),
-                                    end   = Offset(size.width/2 + innerR * cos(radian).toFloat(),
-                                        size.height/2 + innerR * sin(radian).toFloat()),
-                                    strokeWidth = 3f
-                                )
-                            }
-                        }
-
-                        Canvas(modifier = Modifier.size(200.dp).rotate(needleRotation)) {
-                            val cx = size.width / 2; val cy = size.height / 2
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        if (isFacingQibla) WarmAmber.copy(alpha = 0.3f) else LavenderGlow.copy(alpha = 0.2f),
-                                        Color.Transparent
-                                    ),
-                                    center = Offset(cx, cy - 55f), radius = 30f
-                                ),
-                                radius = 30f, center = Offset(cx, cy - 55f)
-                            )
-                            val needlePath = Path().apply {
-                                moveTo(cx, cy - 80)
-                                lineTo(cx - 12, cy + 24)
-                                lineTo(cx, cy + 14)
-                                lineTo(cx + 12, cy + 24)
-                                close()
-                            }
-                            drawPath(
-                                path = needlePath,
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        if (isFacingQibla) WarmAmber else LavenderGlow,
-                                        if (isFacingQibla) WarmAmber.copy(alpha = 0.4f) else SoftPurple.copy(alpha = 0.4f)
-                                    )
-                                )
-                            )
-                            drawCircle(color = Color.White, radius = 8f, center = Offset(cx, cy))
-                            drawCircle(color = if (isFacingQibla) WarmAmber else SoftPurple, radius = 4f, center = Offset(cx, cy))
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .padding(top = 12.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFFBBF24).copy(alpha = 0.12f))
-                                .border(1.dp, Color(0xFFFBBF24).copy(alpha = 0.45f), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 10.dp, vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Canvas(modifier = Modifier.size(22.dp)) {
-                                val w = size.width; val h = size.height
-                                drawRect(color = Color.Black, size = androidx.compose.ui.geometry.Size(w, h * 0.75f),
-                                    topLeft = Offset(0f, h * 0.25f))
-                                drawRect(color = Color(0xFFFFD700),
-                                    size = androidx.compose.ui.geometry.Size(w, h * 0.1f),
-                                    topLeft = Offset(0f, h * 0.4f))
-                                drawRect(color = Color(0xFFFFD700).copy(alpha = 0.6f),
-                                    size = androidx.compose.ui.geometry.Size(w * 0.22f, h * 0.28f),
-                                    topLeft = Offset(w * 0.39f, h * 0.47f))
-                                drawArc(color = Color(0xFFFBBF24).copy(alpha = 0.7f),
-                                    startAngle = 180f, sweepAngle = 180f, useCenter = true,
-                                    size = androidx.compose.ui.geometry.Size(w * 0.4f, h * 0.3f),
-                                    topLeft = Offset(w * 0.3f, 0f))
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(36.dp))
-
-                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.Center) {
-                        Text(
-                            text = if (isFacingQibla) "✓" else "${qiblaDirection.roundToInt()}°",
-                            fontSize = 52.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
-                        )
-                        if (!isFacingQibla) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "from North",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = TextSecondary,
-                                modifier = Modifier.padding(bottom = 10.dp)
-                            )
-                        } else {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Facing Qibla", fontSize = 18.sp,
-                                fontWeight = FontWeight.Medium, color = WarmAmber,
-                                modifier = Modifier.padding(bottom = 10.dp))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = if (isFacingQibla)
-                            "May Allah accept your prayer."
-                        else
-                            "Rotate your phone until the arrow\\npoints North to find the Qibla",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 22.sp,
-                        modifier = Modifier.padding(horizontal = 32.dp)
-                    )
-
-                    if (!isCalibrated) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "⚠️ Move phone in figure-8 to calibrate",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = WarmAmber, textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-
-            // ── Footer ──
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(BackgroundDark.copy(alpha = 0.6f))
-                    .padding(horizontal = 24.dp, vertical = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
+            item {
                 Row(
                     modifier = Modifier
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.05f))
-                        .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 8.dp)
+                        .padding(top = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // Avatar placeholder
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(PrimaryBlue.copy(alpha = 0.20f))
+                                .border(2.dp, PrimaryBlue.copy(alpha = 0.50f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("S", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                        Text(
+                            text = "Insights",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            letterSpacing = (-0.5).sp
+                        )
+                    }
+                    // Notification bell in glass circle
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
+                            .size(40.dp)
                             .clip(CircleShape)
-                            .background(PrimaryBlue.copy(alpha = 0.2f)),
+                            .background(GlassFill)
+                            .border(1.dp, GlassStroke, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("📍", fontSize = 14.sp)
-                    }
-                    Column {
-                        Text(
-                            text = "DESTINATION",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.5.sp,
-                            color = TextSecondary
-                        )
-                        Text(
-                            text = "Kaaba, Makkah Al-Mukarramah",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
-                        )
+                        Icon(Icons.Default.NotificationsNone, "Notifications",
+                            tint = Color.White, modifier = Modifier.size(20.dp))
                     }
                 }
+            }
 
-                Text(
-                    text = "21.4225° N,  39.8262° E",
-                    fontSize = 11.sp,
-                    color = TextSecondary.copy(alpha = 0.6f),
-                    fontWeight = FontWeight.Light,
-                    letterSpacing = 0.5.sp
-                )
+            // ── Weekly Consistency Card ──
+            item {
+                GlassCard(modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(top = 16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        // Top row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Column {
+                                Text(
+                                    "Weekly Consistency",
+                                    fontSize = 13.sp,
+                                    color = TextMuted,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.padding(top = 4.dp)
+                                ) {
+                                    Text(
+                                        "$weeklyConsistency%",
+                                        fontSize = 32.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color.White
+                                    )
+                                    if (weeklyDelta > 0) {
+                                        Text(
+                                            "+$weeklyDelta%",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = EmeraldGreen
+                                        )
+                                    }
+                                }
+                            }
+                            Text(
+                                "Last 7 Days",
+                                fontSize = 11.sp,
+                                color = TextDimmer
+                            )
+                        }
 
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Bar chart
+                        val days = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+                        val maxBarHeight = 120.dp
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(maxBarHeight + 24.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            weeklyData.forEachIndexed { index, count ->
+                                val fraction   = (count / 5f).coerceIn(0f, 1f)
+                                val isToday    = index == ((Calendar.getInstance().get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY + 7) % 7)
+                                val barColor   = if (isToday) PrimaryBlue else PrimaryBlue.copy(alpha = 0.60f)
+                                val labelColor = if (isToday) PrimaryBlue else TextMuted
+
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Bottom,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    // Bar
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 4.dp)
+                                            .height(maxBarHeight * fraction.coerceAtLeast(0.05f))
+                                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                            .background(barColor)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        days[index],
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = labelColor,
+                                        letterSpacing = 1.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Current Streak Card ──
+            item {
                 Box(
                     modifier = Modifier
-                        .width(48.dp)
-                        .height(2.dp)
-                        .clip(RoundedCornerShape(1.dp))
-                        .background(PrimaryBlue)
-                )
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(top = 16.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(GlassFill)
+                        .border(
+                            width = 1.dp,
+                            brush = Brush.horizontalGradient(
+                                listOf(PrimaryBlue, GlassStroke)
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        // Left accent border
+                        .then(
+                            Modifier.drawWithCache {
+                                onDrawWithContent {
+                                    drawContent()
+                                    drawLine(
+                                        color = PrimaryBlue,
+                                        start = Offset(0f, 0f),
+                                        end = Offset(0f, size.height),
+                                        strokeWidth = 4.dp.toPx()
+                                    )
+                                }
+                            }
+                        )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                "CURRENT STREAK",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextMuted,
+                                letterSpacing = 1.5.sp
+                            )
+                            Text(
+                                "$currentStreak Days",
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                "Longest: $longestStreak Days",
+                                fontSize = 13.sp,
+                                color = Color(0xFFCBD5E1) // slate-300
+                            )
+                        }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                        // Verified badge circle
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(PrimaryBlue.copy(alpha = 0.20f))
+                                .border(1.dp, PrimaryBlue.copy(alpha = 0.30f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Verified, "Streak",
+                                tint = PrimaryBlue,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                    }
+
+                    // Decorative blur blob
+                    Box(
+                        modifier = Modifier
+                            .size(100.dp)
+                            .align(Alignment.BottomEnd)
+                            .background(
+                                brush = Brush.radialGradient(
+                                    listOf(PrimaryBlue.copy(alpha = 0.08f), Color.Transparent)
+                                )
+                            )
+                    )
+                }
             }
+
+            // ── Prayer Breakdown header ──
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(top = 28.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "Prayer Breakdown",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        "(Last 30 Days)",
+                        fontSize = 13.sp,
+                        color = TextDimmer,
+                        fontWeight = FontWeight.Normal
+                    )
+                }
+            }
+
+            // ── Prayer rows ──
+            val prayerConfigs = listOf(
+                Triple(Prayer.FAJR,    PrimaryBlue,  "Consistent"),
+                Triple(Prayer.DHUHR,   AccentPurple, "Great Progress"),
+                Triple(Prayer.ASR,     PrimaryBlue,  "Exceptional"),
+                Triple(Prayer.MAGHRIB, AccentPurple, "Good Work"),
+                Triple(Prayer.ISHA,    PrimaryBlue,  "Keep Going")
+            )
+
+            items(prayerConfigs.size) { i ->
+                val (prayer, ringColor, label) = prayerConfigs[i]
+                val (completed, total) = monthlyProgress[prayer] ?: Pair(0, 30)
+                val pct = if (total > 0) ((completed.toFloat() / total) * 100).toInt().coerceIn(0, 100) else 0
+
+                GlassCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(top = 12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Circular progress ring
+                        CircularProgressRing(
+                            progress = pct / 100f,
+                            color = ringColor,
+                            label = "$pct%"
+                        )
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    prayer.displayName,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    fontSize = 15.sp
+                                )
+                                Text(
+                                    "$completed / $total",
+                                    color = TextMuted,
+                                    fontSize = 12.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                label,
+                                color = ringColor,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── Recent Reflection header ──
+            item {
+                Text(
+                    "Recent Reflection",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier
+                        .padding(horizontal = 24.dp)
+                        .padding(top = 28.dp, bottom = 16.dp)
+                )
+            }
+
+            // ── Quote card ──
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(GlassFill)
+                        .border(1.dp, PrimaryBlue.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
+                        .padding(24.dp)
+                ) {
+                    Column {
+                        // Quote mark badge
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(PrimaryBlue.copy(alpha = 0.20f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("❝", color = PrimaryBlue, fontSize = 18.sp)
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "\u201c$quote\u201d",
+                            color = Color(0xFFCBD5E1), // slate-300
+                            fontSize = 13.sp,
+                            fontStyle = FontStyle.Italic,
+                            lineHeight = 22.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(PrimaryBlue)
+                            )
+                            Text(
+                                "NOTE FROM $today".uppercase(),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextDimmer,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
 }
 
-/** Standard IIR low-pass filter for sensor arrays */
-private fun lowPassFilter(input: FloatArray, output: FloatArray?): FloatArray {
-    if (output == null) return input
-    return FloatArray(input.size) { i ->
-        output[i] + LP_ALPHA * (input[i] - output[i])
+// ── Circular progress ring drawn with Canvas ──
+@Composable
+private fun CircularProgressRing(
+    progress: Float,
+    color: Color,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(56.dp)
+            .drawWithCache {
+                val stroke    = 4.dp.toPx()
+                val diameter  = size.minDimension - stroke
+                val topLeft   = Offset(stroke / 2f, stroke / 2f)
+                val arcSize   = Size(diameter, diameter)
+                onDrawWithContent {
+                    // Track
+                    drawArc(
+                        color      = Color(0xFF1E293B), // slate-800
+                        startAngle = -90f,
+                        sweepAngle = 360f,
+                        useCenter  = false,
+                        topLeft    = topLeft,
+                        size       = arcSize,
+                        style      = Stroke(width = stroke, cap = StrokeCap.Round)
+                    )
+                    // Progress arc
+                    if (progress > 0f) {
+                        drawArc(
+                            color      = color,
+                            startAngle = -90f,
+                            sweepAngle = 360f * progress,
+                            useCenter  = false,
+                            topLeft    = topLeft,
+                            size       = arcSize,
+                            style      = Stroke(width = stroke, cap = StrokeCap.Round)
+                        )
+                    }
+                    drawContent()
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
     }
 }
 
-private fun calculateQiblaDirection(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
-    val dLon    = Math.toRadians(lon2 - lon1)
-    val lat1Rad = Math.toRadians(lat1)
-    val lat2Rad = Math.toRadians(lat2)
-    val y = sin(dLon) * cos(lat2Rad)
-    val x = cos(lat1Rad) * sin(lat2Rad) - sin(lat1Rad) * cos(lat2Rad) * cos(dLon)
-    return ((Math.toDegrees(atan2(y, x)).toFloat()) + 360) % 360
+// ── Reusable glass card ──
+@Composable
+private fun GlassCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(GlassFill)
+            .border(1.dp, GlassStroke, RoundedCornerShape(16.dp))
+    ) {
+        content()
+    }
 }
-
-private fun calculateAngleDifference(angle1: Float, angle2: Float): Float {
-    var diff = kotlin.math.abs(angle1 - angle2)
-    if (diff > 180) diff = 360 - diff
-    return diff
-}
-
-private const val KAABA_LATITUDE  = 21.4225
-private const val KAABA_LONGITUDE = 39.8262
 '''
 
-# ── 3. SettingsScreen.kt — included verbatim to protect fragile imports ──
+# ── 3. SettingsScreen.kt — always included to protect fragile import ──
 files[('src', 'ui/screens/settings/SettingsScreen.kt')] = \
 '''package com.sujood.app.ui.screens.settings
 
@@ -800,19 +959,12 @@ fun SettingsScreen(
     var showCityDialog by remember { mutableStateOf(false) }
     var showLockTriggerDialog by remember { mutableStateOf(false) }
     var showLockDurationDialog by remember { mutableStateOf(false) }
-
     val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "Settings",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Light
-                    )
-                },
+                title = { Text("Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Light) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -823,67 +975,39 @@ fun SettingsScreen(
         },
         containerColor = DeepNavy
     ) { paddingValues ->
-        AnimatedGradientBackground(
-            modifier = Modifier.fillMaxSize().padding(paddingValues)
-        ) {
+        AnimatedGradientBackground(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(20.dp),
+                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 SettingsSectionHeader("Profile")
                 SettingsCard {
-                    SettingsClickableItem(
-                        icon = Icons.Default.Person,
-                        title = "Name",
-                        subtitle = settings.name.ifEmpty { "Not set" },
-                        onClick = { showNameDialog = true }
-                    )
+                    SettingsClickableItem(icon = Icons.Default.Person, title = "Name",
+                        subtitle = settings.name.ifEmpty { "Not set" }, onClick = { showNameDialog = true })
                 }
-
                 SettingsSectionHeader("Location")
                 SettingsCard {
-                    SettingsClickableItem(
-                        icon = Icons.Default.LocationOn,
-                        title = "Prayer Location",
+                    SettingsClickableItem(icon = Icons.Default.LocationOn, title = "Prayer Location",
                         subtitle = if (settings.savedCity.isNotEmpty()) settings.savedCity
                                    else if (settings.savedLatitude != 0.0) "GPS: %.2f°, %.2f°".format(settings.savedLatitude, settings.savedLongitude)
                                    else "Not set — tap to change",
-                        onClick = { showCityDialog = true }
-                    )
+                        onClick = { showCityDialog = true })
                 }
-
                 SettingsSectionHeader("Prayer Settings")
                 SettingsCard {
-                    SettingsClickableItem(
-                        title = "Calculation Method",
-                        subtitle = settings.calculationMethod.displayName,
-                        onClick = { showMethodDialog = true }
-                    )
+                    SettingsClickableItem(title = "Calculation Method", subtitle = settings.calculationMethod.displayName, onClick = { showMethodDialog = true })
                     SettingsDivider()
-                    SettingsClickableItem(
-                        title = "Madhab (Asr)",
-                        subtitle = settings.madhab.displayName,
-                        onClick = { showMadhabDialog = true }
-                    )
+                    SettingsClickableItem(title = "Madhab (Asr)", subtitle = settings.madhab.displayName, onClick = { showMadhabDialog = true })
                     SettingsDivider()
-                    SettingsClickableItem(
-                        title = "Grace Period",
+                    SettingsClickableItem(title = "Grace Period",
                         subtitle = if (settings.gracePeriodMinutes == 0) "No grace period" else "${settings.gracePeriodMinutes} minutes",
-                        onClick = { showGracePeriodDialog = true }
-                    )
+                        onClick = { showGracePeriodDialog = true })
                 }
-
                 SettingsSectionHeader("Notifications")
                 SettingsCard {
-                    Text(
-                        text = "Receive a notification when each prayer time arrives",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp)
-                    )
+                    Text("Receive a notification when each prayer time arrives",
+                        style = MaterialTheme.typography.bodySmall, color = TextSecondary,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp))
                     Prayer.entries.forEach { prayer ->
                         SettingsToggleItem(
                             title = "${prayer.displayName} Notification",
@@ -895,24 +1019,17 @@ fun SettingsScreen(
                                 Prayer.ISHA -> settings.ishaNotificationEnabled
                             },
                             onToggle = { enabled ->
-                                scope.launch {
-                                    userPreferences.saveNotificationEnabled(prayer.name, enabled)
-                                    rescheduleAlarms(context, userPreferences)
-                                }
+                                scope.launch { userPreferences.saveNotificationEnabled(prayer.name, enabled); rescheduleAlarms(context, userPreferences) }
                             }
                         )
                         if (prayer != Prayer.entries.last()) SettingsDivider()
                     }
                 }
-
                 SettingsSectionHeader("Prayer Lock")
                 SettingsCard {
-                    Text(
-                        text = "Lock the phone at prayer time and block distractions",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp)
-                    )
+                    Text("Lock the phone at prayer time and block distractions",
+                        style = MaterialTheme.typography.bodySmall, color = TextSecondary,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp))
                     Prayer.entries.forEach { prayer ->
                         SettingsToggleItem(
                             title = "Lock for ${prayer.displayName}",
@@ -924,16 +1041,12 @@ fun SettingsScreen(
                                 Prayer.ISHA -> settings.ishaLockEnabled
                             },
                             onToggle = { enabled ->
-                                scope.launch {
-                                    userPreferences.saveLockEnabled(prayer.name, enabled)
-                                    rescheduleAlarms(context, userPreferences)
-                                }
+                                scope.launch { userPreferences.saveLockEnabled(prayer.name, enabled); rescheduleAlarms(context, userPreferences) }
                             }
                         )
                         if (prayer != Prayer.entries.last()) SettingsDivider()
                     }
                 }
-
                 SettingsSectionHeader("Lock Behavior")
                 SettingsCard {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -943,435 +1056,125 @@ fun SettingsScreen(
                             LockMode.entries.forEach { mode ->
                                 val isSelected = settings.lockMode == mode
                                 Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable {
-                                            scope.launch {
-                                                userPreferences.saveLockSettings(mode, settings.lockTriggerMinutes, settings.lockDurationMinutes)
-                                            }
-                                        }
-                                        .background(
-                                            if (isSelected) SoftPurple.copy(alpha = 0.2f) else MidnightBlue.copy(alpha = 0.5f),
-                                            RoundedCornerShape(10.dp)
-                                        )
+                                    modifier = Modifier.weight(1f)
+                                        .clickable { scope.launch { userPreferences.saveLockSettings(mode, settings.lockTriggerMinutes, settings.lockDurationMinutes) } }
+                                        .background(if (isSelected) SoftPurple.copy(alpha = 0.2f) else MidnightBlue.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
                                         .padding(vertical = 10.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = mode.displayName,
-                                        style = MaterialTheme.typography.bodySmall,
+                                    Text(mode.displayName, style = MaterialTheme.typography.bodySmall,
                                         color = if (isSelected) SoftPurple else TextSecondary,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    )
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
                                 }
                             }
                         }
                     }
                     SettingsDivider()
-                    SettingsClickableItem(
-                        title = "Trigger Timing",
-                        subtitle = if (settings.lockTriggerMinutes == 0) "At prayer time"
-                                   else "${settings.lockTriggerMinutes} minutes after prayer",
-                        onClick = { showLockTriggerDialog = true }
-                    )
+                    SettingsClickableItem(title = "Trigger Timing",
+                        subtitle = if (settings.lockTriggerMinutes == 0) "At prayer time" else "${settings.lockTriggerMinutes} minutes after prayer",
+                        onClick = { showLockTriggerDialog = true })
                     SettingsDivider()
-                    SettingsClickableItem(
-                        title = "Lock Duration",
-                        subtitle = "${settings.lockDurationMinutes} minutes",
-                        onClick = { showLockDurationDialog = true }
-                    )
+                    SettingsClickableItem(title = "Lock Duration", subtitle = "${settings.lockDurationMinutes} minutes",
+                        onClick = { showLockDurationDialog = true })
                 }
-
                 SettingsSectionHeader("Audio & Haptics")
                 SettingsCard {
-                    SettingsToggleItem(
-                        title = "Adhan Sound",
-                        subtitle = "Play adhan when prayer time arrives",
+                    SettingsToggleItem(title = "Adhan Sound", subtitle = "Play adhan when prayer time arrives",
                         isEnabled = settings.adhanEnabled,
-                        onToggle = { enabled ->
-                            scope.launch { userPreferences.saveAudioSettings(enabled, settings.vibrationEnabled) }
-                        }
-                    )
+                        onToggle = { enabled -> scope.launch { userPreferences.saveAudioSettings(enabled, settings.vibrationEnabled) } })
                     SettingsDivider()
-                    SettingsToggleItem(
-                        title = "Vibration",
-                        subtitle = "Vibrate at prayer time",
+                    SettingsToggleItem(title = "Vibration", subtitle = "Vibrate at prayer time",
                         isEnabled = settings.vibrationEnabled,
-                        onToggle = { enabled ->
-                            scope.launch { userPreferences.saveAudioSettings(settings.adhanEnabled, enabled) }
-                        }
-                    )
+                        onToggle = { enabled -> scope.launch { userPreferences.saveAudioSettings(settings.adhanEnabled, enabled) } })
                 }
-
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
 
-    if (showNameDialog) {
-        NameDialog(
-            currentName = settings.name,
-            onDismiss = { showNameDialog = false },
-            onConfirm = { name -> scope.launch { userPreferences.saveUserName(name) }; showNameDialog = false }
-        )
-    }
-    if (showCityDialog) {
-        ChangeCityDialog(
-            currentCity = settings.savedCity,
-            onDismiss = { showCityDialog = false },
-            onConfirm = { city ->
-                scope.launch {
-                    userPreferences.saveLocationSettings(
-                        useGps = false, city = city, country = "", latitude = 0.0, longitude = 0.0
-                    )
-                }
-                showCityDialog = false
-            },
-            onUseGps = {
-                scope.launch {
-                    userPreferences.saveLocationSettings(useGps = true, city = "", country = "", latitude = 0.0, longitude = 0.0)
-                }
-                showCityDialog = false
-            }
-        )
-    }
-    if (showMethodDialog) {
-        CalculationMethodDialog(
-            currentMethod = settings.calculationMethod,
-            onDismiss = { showMethodDialog = false },
-            onSelect = { method -> scope.launch { userPreferences.saveCalculationMethod(method) }; showMethodDialog = false }
-        )
-    }
-    if (showMadhabDialog) {
-        MadhabDialog(
-            currentMadhab = settings.madhab,
-            onDismiss = { showMadhabDialog = false },
-            onSelect = { madhab -> scope.launch { userPreferences.saveMadhab(madhab) }; showMadhabDialog = false }
-        )
-    }
-    if (showGracePeriodDialog) {
-        GracePeriodDialog(
-            currentMinutes = settings.gracePeriodMinutes,
-            onDismiss = { showGracePeriodDialog = false },
-            onSelect = { minutes -> scope.launch { userPreferences.saveGracePeriod(minutes) }; showGracePeriodDialog = false }
-        )
-    }
-    if (showLockTriggerDialog) {
-        TriggerDialog(
-            currentMinutes = settings.lockTriggerMinutes,
-            onDismiss = { showLockTriggerDialog = false },
-            onSelect = { minutes ->
-                scope.launch { userPreferences.saveLockSettings(settings.lockMode, minutes, settings.lockDurationMinutes) }
-                showLockTriggerDialog = false
-            }
-        )
-    }
-    if (showLockDurationDialog) {
-        DurationDialog(
-            currentMinutes = settings.lockDurationMinutes,
-            onDismiss = { showLockDurationDialog = false },
-            onSelect = { minutes ->
-                scope.launch { userPreferences.saveLockSettings(settings.lockMode, settings.lockTriggerMinutes, minutes) }
-                showLockDurationDialog = false
-            }
-        )
-    }
+    if (showNameDialog) NameDialog(settings.name, { showNameDialog = false }) { name -> scope.launch { userPreferences.saveUserName(name) }; showNameDialog = false }
+    if (showCityDialog) ChangeCityDialog(settings.savedCity, { showCityDialog = false },
+        { city -> scope.launch { userPreferences.saveLocationSettings(false, city, "", 0.0, 0.0) }; showCityDialog = false },
+        { scope.launch { userPreferences.saveLocationSettings(true, "", "", 0.0, 0.0) }; showCityDialog = false })
+    if (showMethodDialog) CalculationMethodDialog(settings.calculationMethod, { showMethodDialog = false }) { method -> scope.launch { userPreferences.saveCalculationMethod(method) }; showMethodDialog = false }
+    if (showMadhabDialog) MadhabDialog(settings.madhab, { showMadhabDialog = false }) { madhab -> scope.launch { userPreferences.saveMadhab(madhab) }; showMadhabDialog = false }
+    if (showGracePeriodDialog) GracePeriodDialog(settings.gracePeriodMinutes, { showGracePeriodDialog = false }) { minutes -> scope.launch { userPreferences.saveGracePeriod(minutes) }; showGracePeriodDialog = false }
+    if (showLockTriggerDialog) TriggerDialog(settings.lockTriggerMinutes, { showLockTriggerDialog = false }) { minutes -> scope.launch { userPreferences.saveLockSettings(settings.lockMode, minutes, settings.lockDurationMinutes) }; showLockTriggerDialog = false }
+    if (showLockDurationDialog) DurationDialog(settings.lockDurationMinutes, { showLockDurationDialog = false }) { minutes -> scope.launch { userPreferences.saveLockSettings(settings.lockMode, settings.lockTriggerMinutes, minutes) }; showLockDurationDialog = false }
 }
 
-@Composable
-private fun SettingsSectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        color = SoftPurple,
-        fontWeight = FontWeight.Medium,
-        modifier = Modifier.padding(vertical = 4.dp)
-    )
+@Composable private fun SettingsSectionHeader(title: String) {
+    Text(title, style = MaterialTheme.typography.titleSmall, color = SoftPurple, fontWeight = FontWeight.Medium, modifier = Modifier.padding(vertical = 4.dp))
 }
-
-@Composable
-private fun SettingsCard(content: @Composable () -> Unit) {
-    FrostedGlassCard(cornerRadius = 20.dp, contentPadding = 0.dp) {
-        Column { content() }
-    }
+@Composable private fun SettingsCard(content: @Composable () -> Unit) {
+    FrostedGlassCard(cornerRadius = 20.dp, contentPadding = 0.dp) { Column { content() } }
 }
-
-@Composable
-private fun SettingsClickableItem(
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+@Composable private fun SettingsClickableItem(title: String, subtitle: String, onClick: () -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-            if (icon != null) {
-                Icon(imageVector = icon, contentDescription = null, tint = SoftPurple, modifier = Modifier.size(22.dp))
-                Spacer(modifier = Modifier.width(14.dp))
-            }
-            Column {
-                Text(text = title, style = MaterialTheme.typography.bodyLarge)
-                Text(text = subtitle, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-            }
+            if (icon != null) { Icon(imageVector = icon, contentDescription = null, tint = SoftPurple, modifier = Modifier.size(22.dp)); Spacer(modifier = Modifier.width(14.dp)) }
+            Column { Text(title, style = MaterialTheme.typography.bodyLarge); Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = TextSecondary) }
         }
         Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = TextSecondary)
     }
 }
-
-@Composable
-private fun SettingsToggleItem(
-    title: String,
-    isEnabled: Boolean,
-    onToggle: (Boolean) -> Unit,
-    subtitle: String? = null
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+@Composable private fun SettingsToggleItem(title: String, isEnabled: Boolean, onToggle: (Boolean) -> Unit, subtitle: String? = null) {
+    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.bodyLarge)
-            if (subtitle != null) {
-                Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-            }
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         }
-        Switch(
-            checked = isEnabled,
-            onCheckedChange = onToggle,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = SoftPurple,
-                checkedTrackColor = SoftPurple.copy(alpha = 0.4f),
-                uncheckedThumbColor = TextSecondary,
-                uncheckedTrackColor = MidnightBlue
-            )
-        )
+        Switch(checked = isEnabled, onCheckedChange = onToggle, colors = SwitchDefaults.colors(checkedThumbColor = SoftPurple, checkedTrackColor = SoftPurple.copy(alpha = 0.4f), uncheckedThumbColor = TextSecondary, uncheckedTrackColor = MidnightBlue))
     }
 }
-
-@Composable
-private fun SettingsDivider() {
+@Composable private fun SettingsDivider() {
     Box(modifier = Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 16.dp).background(GlassBorder))
 }
-
-@Composable
-private fun NameDialog(currentName: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+@Composable private fun NameDialog(currentName: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var name by remember { mutableStateOf(currentName) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Your Name") },
-        text = {
-            OutlinedTextField(
-                value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = SoftPurple, unfocusedBorderColor = GlassBorder)
-            )
-        },
-        confirmButton = {
-            Button(onClick = { onConfirm(name) }, colors = ButtonDefaults.buttonColors(containerColor = SoftPurple)) { Text("Save") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        containerColor = MidnightBlue
-    )
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Your Name") },
+        text = { OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = SoftPurple, unfocusedBorderColor = GlassBorder)) },
+        confirmButton = { Button(onClick = { onConfirm(name) }, colors = ButtonDefaults.buttonColors(containerColor = SoftPurple)) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }, containerColor = MidnightBlue)
 }
-
-@Composable
-private fun ChangeCityDialog(
-    currentCity: String,
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
-    onUseGps: () -> Unit
-) {
+@Composable private fun ChangeCityDialog(currentCity: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit, onUseGps: () -> Unit) {
     var city by remember { mutableStateOf(currentCity) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Change Location") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = city, onValueChange = { city = it },
-                    label = { Text("City Name") },
-                    placeholder = { Text("e.g. Dubai") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = SoftPurple, unfocusedBorderColor = GlassBorder,
-                        focusedTextColor = Color.White, unfocusedTextColor = Color.White)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                TextButton(onClick = onUseGps) {
-                    Text("Use GPS instead", color = LavenderGlow)
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = { if (city.isNotBlank()) onConfirm(city.trim()) },
-                   colors = ButtonDefaults.buttonColors(containerColor = SoftPurple)) { Text("Confirm") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        containerColor = MidnightBlue
-    )
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Change Location") },
+        text = { Column { OutlinedTextField(value = city, onValueChange = { city = it }, label = { Text("City Name") }, placeholder = { Text("e.g. Dubai") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = SoftPurple, unfocusedBorderColor = GlassBorder, focusedTextColor = Color.White, unfocusedTextColor = Color.White)); Spacer(modifier = Modifier.height(12.dp)); TextButton(onClick = onUseGps) { Text("Use GPS instead", color = LavenderGlow) } } },
+        confirmButton = { Button(onClick = { if (city.isNotBlank()) onConfirm(city.trim()) }, colors = ButtonDefaults.buttonColors(containerColor = SoftPurple)) { Text("Confirm") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }, containerColor = MidnightBlue)
 }
-
-@Composable
-private fun CalculationMethodDialog(currentMethod: CalculationMethod, onDismiss: () -> Unit, onSelect: (CalculationMethod) -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Calculation Method") },
-        text = {
-            Column {
-                CalculationMethod.entries.forEach { method ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onSelect(method) }.padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(method.displayName)
-                        if (method == currentMethod) Icon(Icons.Default.Check, null, tint = SoftPurple)
-                    }
-                }
-            }
-        },
-        confirmButton = {},
-        containerColor = MidnightBlue
-    )
+@Composable private fun CalculationMethodDialog(currentMethod: CalculationMethod, onDismiss: () -> Unit, onSelect: (CalculationMethod) -> Unit) {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Calculation Method") }, text = { Column { CalculationMethod.entries.forEach { method -> Row(modifier = Modifier.fillMaxWidth().clickable { onSelect(method) }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(method.displayName); if (method == currentMethod) Icon(Icons.Default.Check, null, tint = SoftPurple) } } } }, confirmButton = {}, containerColor = MidnightBlue)
 }
-
-@Composable
-private fun MadhabDialog(currentMadhab: Madhab, onDismiss: () -> Unit, onSelect: (Madhab) -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Select Madhab") },
-        text = {
-            Column {
-                Madhab.entries.forEach { madhab ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onSelect(madhab) }.padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(madhab.displayName)
-                        if (madhab == currentMadhab) Icon(Icons.Default.Check, null, tint = SoftPurple)
-                    }
-                }
-            }
-        },
-        confirmButton = {},
-        containerColor = MidnightBlue
-    )
+@Composable private fun MadhabDialog(currentMadhab: Madhab, onDismiss: () -> Unit, onSelect: (Madhab) -> Unit) {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Select Madhab") }, text = { Column { Madhab.entries.forEach { madhab -> Row(modifier = Modifier.fillMaxWidth().clickable { onSelect(madhab) }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(madhab.displayName); if (madhab == currentMadhab) Icon(Icons.Default.Check, null, tint = SoftPurple) } } } }, confirmButton = {}, containerColor = MidnightBlue)
 }
-
-@Composable
-private fun GracePeriodDialog(currentMinutes: Int, onDismiss: () -> Unit, onSelect: (Int) -> Unit) {
+@Composable private fun GracePeriodDialog(currentMinutes: Int, onDismiss: () -> Unit, onSelect: (Int) -> Unit) {
     val options = listOf(0, 5, 10, 15, 30)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Grace Period") },
-        text = {
-            Column {
-                options.forEach { minutes ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onSelect(minutes) }.padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(if (minutes == 0) "No grace period" else "$minutes minutes")
-                        if (minutes == currentMinutes) Icon(Icons.Default.Check, null, tint = SoftPurple)
-                    }
-                }
-            }
-        },
-        confirmButton = {},
-        containerColor = MidnightBlue
-    )
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Grace Period") }, text = { Column { options.forEach { minutes -> Row(modifier = Modifier.fillMaxWidth().clickable { onSelect(minutes) }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(if (minutes == 0) "No grace period" else "$minutes minutes"); if (minutes == currentMinutes) Icon(Icons.Default.Check, null, tint = SoftPurple) } } } }, confirmButton = {}, containerColor = MidnightBlue)
 }
-
-@Composable
-private fun TriggerDialog(currentMinutes: Int, onDismiss: () -> Unit, onSelect: (Int) -> Unit) {
+@Composable private fun TriggerDialog(currentMinutes: Int, onDismiss: () -> Unit, onSelect: (Int) -> Unit) {
     val options = listOf(0, 5, 10, 15, 30)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Lock Trigger") },
-        text = {
-            Column {
-                options.forEach { minutes ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onSelect(minutes) }.padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(if (minutes == 0) "At prayer time" else "$minutes minutes after prayer")
-                        if (minutes == currentMinutes) Icon(Icons.Default.Check, null, tint = WarmAmber)
-                    }
-                }
-            }
-        },
-        confirmButton = {},
-        containerColor = MidnightBlue
-    )
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Lock Trigger") }, text = { Column { options.forEach { minutes -> Row(modifier = Modifier.fillMaxWidth().clickable { onSelect(minutes) }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(if (minutes == 0) "At prayer time" else "$minutes minutes after prayer"); if (minutes == currentMinutes) Icon(Icons.Default.Check, null, tint = WarmAmber) } } } }, confirmButton = {}, containerColor = MidnightBlue)
 }
-
-@Composable
-private fun DurationDialog(currentMinutes: Int, onDismiss: () -> Unit, onSelect: (Int) -> Unit) {
+@Composable private fun DurationDialog(currentMinutes: Int, onDismiss: () -> Unit, onSelect: (Int) -> Unit) {
     val options = listOf(5, 10, 15, 20, 30, 60)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Lock Duration") },
-        text = {
-            Column {
-                options.forEach { minutes ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onSelect(minutes) }.padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("$minutes minutes")
-                        if (minutes == currentMinutes) Icon(Icons.Default.Check, null, tint = WarmAmber)
-                    }
-                }
-            }
-        },
-        confirmButton = {},
-        containerColor = MidnightBlue
-    )
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Lock Duration") }, text = { Column { options.forEach { minutes -> Row(modifier = Modifier.fillMaxWidth().clickable { onSelect(minutes) }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("$minutes minutes"); if (minutes == currentMinutes) Icon(Icons.Default.Check, null, tint = WarmAmber) } } } }, confirmButton = {}, containerColor = MidnightBlue)
 }
-
-private suspend fun rescheduleAlarms(
-    context: android.content.Context,
-    userPreferences: com.sujood.app.data.local.datastore.UserPreferences
-) {
-    val settings = userPreferences.userSettings.first()
-    val app = context.applicationContext as SujoodApplication
+private suspend fun rescheduleAlarms(context: android.content.Context, userPreferences: com.sujood.app.data.local.datastore.UserPreferences) {
+    val settings   = userPreferences.userSettings.first()
+    val app        = context.applicationContext as SujoodApplication
     val repository = PrayerTimesRepository(RetrofitClient.aladhanApiService, app.database.prayerLogDao())
-
     val result = when {
-        settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0 ->
-            repository.getPrayerTimes(settings.savedLatitude, settings.savedLongitude, settings.calculationMethod, settings.madhab)
+        settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0 -> repository.getPrayerTimes(settings.savedLatitude, settings.savedLongitude, settings.calculationMethod, settings.madhab)
         settings.savedCity.isNotEmpty() -> repository.getPrayerTimesByCity(settings.savedCity)
         else -> return
     }
-
     result.onSuccess { prayerTimes ->
         val scheduler = PrayerAlarmScheduler(context)
-        val notif = com.sujood.app.domain.model.Prayer.entries.map { p ->
-            when (p) {
-                com.sujood.app.domain.model.Prayer.FAJR -> settings.fajrNotificationEnabled
-                com.sujood.app.domain.model.Prayer.DHUHR -> settings.dhuhrNotificationEnabled
-                com.sujood.app.domain.model.Prayer.ASR -> settings.asrNotificationEnabled
-                com.sujood.app.domain.model.Prayer.MAGHRIB -> settings.maghribNotificationEnabled
-                com.sujood.app.domain.model.Prayer.ISHA -> settings.ishaNotificationEnabled
-            }
-        }.toBooleanArray()
-        val lock = com.sujood.app.domain.model.Prayer.entries.map { p ->
-            when (p) {
-                com.sujood.app.domain.model.Prayer.FAJR -> settings.fajrLockEnabled
-                com.sujood.app.domain.model.Prayer.DHUHR -> settings.dhuhrLockEnabled
-                com.sujood.app.domain.model.Prayer.ASR -> settings.asrLockEnabled
-                com.sujood.app.domain.model.Prayer.MAGHRIB -> settings.maghribLockEnabled
-                com.sujood.app.domain.model.Prayer.ISHA -> settings.ishaLockEnabled
-            }
-        }.toBooleanArray()
+        val notif = com.sujood.app.domain.model.Prayer.entries.map { p -> when (p) { com.sujood.app.domain.model.Prayer.FAJR -> settings.fajrNotificationEnabled; com.sujood.app.domain.model.Prayer.DHUHR -> settings.dhuhrNotificationEnabled; com.sujood.app.domain.model.Prayer.ASR -> settings.asrNotificationEnabled; com.sujood.app.domain.model.Prayer.MAGHRIB -> settings.maghribNotificationEnabled; com.sujood.app.domain.model.Prayer.ISHA -> settings.ishaNotificationEnabled } }.toBooleanArray()
+        val lock  = com.sujood.app.domain.model.Prayer.entries.map { p -> when (p) { com.sujood.app.domain.model.Prayer.FAJR -> settings.fajrLockEnabled; com.sujood.app.domain.model.Prayer.DHUHR -> settings.dhuhrLockEnabled; com.sujood.app.domain.model.Prayer.ASR -> settings.asrLockEnabled; com.sujood.app.domain.model.Prayer.MAGHRIB -> settings.maghribLockEnabled; com.sujood.app.domain.model.Prayer.ISHA -> settings.ishaLockEnabled } }.toBooleanArray()
         scheduler.scheduleAllAlarms(prayerTimes, notif, lock, settings.gracePeriodMinutes)
     }
 }
