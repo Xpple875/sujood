@@ -221,9 +221,8 @@ class PrayerLockOverlayService : Service() {
             .build()
     }
 
-    private fun playAdhan() {
+    private fun playAdhan(adhanUrl: String) {
         try {
-            val adhanUrl = settings.adhanSoundUrl.ifEmpty { "https://cdn.islamic.network/quran/audio/128/ar.alafasy/1.mp3" }
             mediaPlayer = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
@@ -231,7 +230,7 @@ class PrayerLockOverlayService : Service() {
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build()
                 )
-                setDataSource(adhanUrl as String)
+                setDataSource(adhanUrl)
                 isLooping = false
                 prepareAsync()
                 setOnPreparedListener { it.start() }
