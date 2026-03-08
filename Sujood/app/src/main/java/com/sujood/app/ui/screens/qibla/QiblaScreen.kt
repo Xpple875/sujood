@@ -51,12 +51,22 @@ private val BackgroundDark = Color(0xFF101322)
 private val CardBg         = Color(0xFF0D1020)
 private val GlassStroke    = Color(0xFFFFFFFF).copy(alpha = 0.06f)
 
+// Low-pass filter alpha: 0.1 = very smooth (slow to respond), 0.3 = balanced
+private const val LP_ALPHA = 0.15f
+
+/** Shortest-path interpolation for angles so we never spin the wrong way around 360 */
+private fun shortestAngleDiff(from: Float, to: Float): Float {
+    var diff = (to - from + 540f) % 360f - 180f
+    return diff
+}
+
 @Composable
 fun QiblaScreen() {
     val context = LocalContext.current
     var userLatitude  by remember { mutableStateOf(0.0) }
     var userLongitude by remember { mutableStateOf(0.0) }
-    var currentHeading  by remember { mutableFloatStateOf(0f) }
+    // smoothedHeading is the low-pass-filtered compass value we animate
+    var smoothedHeading by remember { mutableFloatStateOf(0f) }
     var qiblaDirection  by remember { mutableFloatStateOf(277f) }
     var isCalibrated    by remember { mutableStateOf(false) }
     var isFacingQibla   by remember { mutableStateOf(false) }
@@ -88,24 +98,30 @@ fun QiblaScreen() {
         }
     }
 
-    // ── Compass sensor (unchanged logic) ──
+    // ── Compass sensor with LOW-PASS FILTER to kill jitter ──
     DisposableEffect(Unit) {
         val sensorManager  = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val accelerometer  = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         val magnetometer   = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
-        var gravity: FloatArray?     = null
-        var geomagnetic: FloatArray? = null
+
+        // Raw sensor arrays with their own low-pass buffers
+        var filteredGravity: FloatArray?     = null
+        var filteredGeomagnetic: FloatArray? = null
 
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 when (event.sensor.type) {
-                    Sensor.TYPE_ACCELEROMETER  -> gravity     = event.values.clone()
-                    Sensor.TYPE_MAGNETIC_FIELD -> geomagnetic = event.values.clone()
+                    Sensor.TYPE_ACCELEROMETER -> {
+                        filteredGravity = lowPassFilter(event.values.clone(), filteredGravity)
+                    }
+                    Sensor.TYPE_MAGNETIC_FIELD -> {
+                        filteredGeomagnetic = lowPassFilter(event.values.clone(), filteredGeomagnetic)
+                    }
                 }
-                val g = gravity; val geo = geomagnetic
+                val g = filteredGravity; val geo = filteredGeomagnetic
                 if (g != null && geo != null) {
-                    val r = FloatArray(9); val i = FloatArray(9)
-                    if (SensorManager.getRotationMatrix(r, i, g, geo)) {
+                    val r = FloatArray(9); val iMatrix = FloatArray(9)
+                    if (SensorManager.getRotationMatrix(r, iMatrix, g, geo)) {
                         val remapped    = FloatArray(9)
                         SensorManager.remapCoordinateSystem(r, SensorManager.AXIS_X, SensorManager.AXIS_Z, remapped)
                         val orientation = FloatArray(3)
@@ -118,8 +134,12 @@ fun QiblaScreen() {
                             azimuth += gf.declination
                         }
                         azimuth = (azimuth + 360) % 360
-                        currentHeading = azimuth
-                        isFacingQibla  = calculateAngleDifference(azimuth, qiblaDirection) < 5f
+
+                        // Apply a second angle-domain low-pass filter to smoothedHeading
+                        val delta = shortestAngleDiff(smoothedHeading, azimuth)
+                        smoothedHeading = (smoothedHeading + LP_ALPHA * delta + 360f) % 360f
+
+                        isFacingQibla  = calculateAngleDifference(smoothedHeading, qiblaDirection) < 5f
                         isCalibrated   = true
                     }
                 }
@@ -129,14 +149,19 @@ fun QiblaScreen() {
             }
         }
 
+        // SENSOR_DELAY_UI is fine — the LP filter does the smoothing
         accelerometer?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
         magnetometer?.let  { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
         onDispose { sensorManager.unregisterListener(listener) }
     }
 
+    // Animate the already-smoothed heading — use a snappy spring so it tracks fast but not twitchy
     val animatedHeading by animateFloatAsState(
-        targetValue  = currentHeading,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        targetValue  = smoothedHeading,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness    = Spring.StiffnessMediumLow
+        ),
         label = "headingAnimation"
     )
     val needleRotation = (qiblaDirection - animatedHeading + 360) % 360
@@ -147,7 +172,6 @@ fun QiblaScreen() {
             .fillMaxSize()
             .background(BackgroundDark)
     ) {
-        // Background blobs matching the design
         Box(modifier = Modifier.fillMaxSize().background(
             brush = Brush.radialGradient(
                 listOf(PrimaryBlue.copy(alpha = 0.12f), Color.Transparent),
@@ -172,7 +196,6 @@ fun QiblaScreen() {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Back button
                 Box(
                     modifier = Modifier
                         .size(40.dp)
@@ -188,7 +211,6 @@ fun QiblaScreen() {
                 Text("Qibla Direction", style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold, color = Color.White)
 
-                // Re-locate button
                 Box(
                     modifier = Modifier
                         .size(40.dp)
@@ -202,7 +224,6 @@ fun QiblaScreen() {
                 }
             }
 
-            // Subtitle
             Text(
                 text = when {
                     !hasLocation -> "⚠️ No location — open Home tab first"
@@ -214,14 +235,12 @@ fun QiblaScreen() {
                 textAlign = TextAlign.Center
             )
 
-            // ── Compass + direction data (takes all remaining vertical space) ──
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                // Central radial glow behind compass
                 Box(
                     modifier = Modifier
                         .size(360.dp)
@@ -237,12 +256,10 @@ fun QiblaScreen() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    // ── Compass dial (unchanged from original) ──
                     Box(
                         modifier = Modifier.size(290.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Outer glow ring
                         Box(
                             modifier = Modifier
                                 .size(290.dp)
@@ -259,21 +276,15 @@ fun QiblaScreen() {
                                 )
                         )
 
-                        // Static compass ring with cardinal tick marks
                         Canvas(modifier = Modifier.size(280.dp)) {
-                            // Outermost ring
                             drawCircle(color = Color.White.copy(alpha = 0.07f),
                                 radius = size.minDimension / 2, style = Stroke(width = 1.dp.toPx()))
-                            // Second ring
                             drawCircle(color = Color.White.copy(alpha = 0.12f),
                                 radius = size.minDimension / 2 - 8f, style = Stroke(width = 1.dp.toPx()))
-                            // Third ring
                             drawCircle(color = Color.White.copy(alpha = 0.20f),
                                 radius = size.minDimension / 2 - 18f, style = Stroke(width = 1.5f))
-                            // Inner fill
                             drawCircle(color = Color.White.copy(alpha = 0.03f),
                                 radius = size.minDimension / 2 - 20)
-                            // Cardinal tick marks
                             listOf(0f, 90f, 180f, 270f).forEach { angle ->
                                 val radian  = Math.toRadians((angle - 90).toDouble())
                                 val outerR  = size.minDimension / 2
@@ -289,10 +300,8 @@ fun QiblaScreen() {
                             }
                         }
 
-                        // ── Rotating needle ──
                         Canvas(modifier = Modifier.size(200.dp).rotate(needleRotation)) {
                             val cx = size.width / 2; val cy = size.height / 2
-                            // Glow
                             drawCircle(
                                 brush = Brush.radialGradient(
                                     colors = listOf(
@@ -303,7 +312,6 @@ fun QiblaScreen() {
                                 ),
                                 radius = 30f, center = Offset(cx, cy - 55f)
                             )
-                            // Needle shape
                             val needlePath = Path().apply {
                                 moveTo(cx, cy - 80)
                                 lineTo(cx - 12, cy + 24)
@@ -320,12 +328,10 @@ fun QiblaScreen() {
                                     )
                                 )
                             )
-                            // Centre dot
                             drawCircle(color = Color.White, radius = 8f, center = Offset(cx, cy))
                             drawCircle(color = if (isFacingQibla) WarmAmber else SoftPurple, radius = 4f, center = Offset(cx, cy))
                         }
 
-                        // ── Kaaba marker at top (static) ──
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
@@ -336,21 +342,16 @@ fun QiblaScreen() {
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            // Simplified mosque/kaaba icon using Canvas
                             Canvas(modifier = Modifier.size(22.dp)) {
                                 val w = size.width; val h = size.height
-                                // Kaaba body (black rectangle)
                                 drawRect(color = Color.Black, size = androidx.compose.ui.geometry.Size(w, h * 0.75f),
                                     topLeft = Offset(0f, h * 0.25f))
-                                // Gold belt
                                 drawRect(color = Color(0xFFFFD700),
                                     size = androidx.compose.ui.geometry.Size(w, h * 0.1f),
                                     topLeft = Offset(0f, h * 0.4f))
-                                // Door
                                 drawRect(color = Color(0xFFFFD700).copy(alpha = 0.6f),
                                     size = androidx.compose.ui.geometry.Size(w * 0.22f, h * 0.28f),
                                     topLeft = Offset(w * 0.39f, h * 0.47f))
-                                // Dome top hint
                                 drawArc(color = Color(0xFFFBBF24).copy(alpha = 0.7f),
                                     startAngle = 180f, sweepAngle = 180f, useCenter = true,
                                     size = androidx.compose.ui.geometry.Size(w * 0.4f, h * 0.3f),
@@ -361,7 +362,6 @@ fun QiblaScreen() {
 
                     Spacer(modifier = Modifier.height(36.dp))
 
-                    // ── Degree readout ──
                     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.Center) {
                         Text(
                             text = if (isFacingQibla) "✓" else "${qiblaDirection.roundToInt()}°",
@@ -411,7 +411,7 @@ fun QiblaScreen() {
                 }
             }
 
-            // ── Footer info card ──
+            // ── Footer ──
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -420,7 +420,6 @@ fun QiblaScreen() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Destination pill
                 Row(
                     modifier = Modifier
                         .clip(CircleShape)
@@ -456,7 +455,6 @@ fun QiblaScreen() {
                     }
                 }
 
-                // Coordinates
                 Text(
                     text = "21.4225° N,  39.8262° E",
                     fontSize = 11.sp,
@@ -465,7 +463,6 @@ fun QiblaScreen() {
                     letterSpacing = 0.5.sp
                 )
 
-                // Blue underline accent (matches design)
                 Box(
                     modifier = Modifier
                         .width(48.dp)
@@ -477,6 +474,14 @@ fun QiblaScreen() {
                 Spacer(modifier = Modifier.height(4.dp))
             }
         }
+    }
+}
+
+/** Standard IIR low-pass filter for sensor arrays */
+private fun lowPassFilter(input: FloatArray, output: FloatArray?): FloatArray {
+    if (output == null) return input
+    return FloatArray(input.size) { i ->
+        output[i] + LP_ALPHA * (input[i] - output[i])
     }
 }
 

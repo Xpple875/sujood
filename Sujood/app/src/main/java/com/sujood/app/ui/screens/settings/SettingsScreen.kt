@@ -121,7 +121,6 @@ fun SettingsScreen(
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // ── Profile ──
                 SettingsSectionHeader("Profile")
                 SettingsCard {
                     SettingsClickableItem(
@@ -132,7 +131,6 @@ fun SettingsScreen(
                     )
                 }
 
-                // ── Location ──
                 SettingsSectionHeader("Location")
                 SettingsCard {
                     SettingsClickableItem(
@@ -145,7 +143,6 @@ fun SettingsScreen(
                     )
                 }
 
-                // ── Prayer Calculation ──
                 SettingsSectionHeader("Prayer Settings")
                 SettingsCard {
                     SettingsClickableItem(
@@ -167,7 +164,6 @@ fun SettingsScreen(
                     )
                 }
 
-                // ── Notifications ──
                 SettingsSectionHeader("Notifications")
                 SettingsCard {
                     Text(
@@ -197,7 +193,6 @@ fun SettingsScreen(
                     }
                 }
 
-                // ── Prayer Lock ──
                 SettingsSectionHeader("Prayer Lock")
                 SettingsCard {
                     Text(
@@ -227,10 +222,8 @@ fun SettingsScreen(
                     }
                 }
 
-                // ── Lock Behavior ──
                 SettingsSectionHeader("Lock Behavior")
                 SettingsCard {
-                    // Lock Mode
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("Lock Mode", style = MaterialTheme.typography.bodyLarge)
                         Spacer(modifier = Modifier.height(8.dp))
@@ -277,7 +270,6 @@ fun SettingsScreen(
                     )
                 }
 
-                // ── Audio & Haptics ──
                 SettingsSectionHeader("Audio & Haptics")
                 SettingsCard {
                     SettingsToggleItem(
@@ -304,7 +296,6 @@ fun SettingsScreen(
         }
     }
 
-    // Dialogs
     if (showNameDialog) {
         NameDialog(
             currentName = settings.name,
@@ -454,8 +445,6 @@ private fun SettingsToggleItem(
 private fun SettingsDivider() {
     Box(modifier = Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 16.dp).background(GlassBorder))
 }
-
-// ── Dialogs ──
 
 @Composable
 private fun NameDialog(currentName: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
@@ -636,7 +625,6 @@ private fun DurationDialog(currentMinutes: Int, onDismiss: () -> Unit, onSelect:
     )
 }
 
-// Helper: re-fetch prayer times with updated settings and reschedule alarms
 private suspend fun rescheduleAlarms(
     context: android.content.Context,
     userPreferences: com.sujood.app.data.local.datastore.UserPreferences
