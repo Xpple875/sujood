@@ -1,61 +1,225 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout 
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/overlay_background">
 
+    <!-- SPIRITUAL FOCUS label top-left -->
     <TextView
-        android:id="@+id/prayerNameText"
+        android:id="@+id/spiritualFocusLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Time for Prayer"
-        android:textColor="#FFFFFF"
-        android:textSize="32sp"
+        android:text="SPIRITUAL FOCUS"
+        android:textColor="#99A3B8CC"
+        android:textSize="10sp"
+        android:letterSpacing="0.15"
+        android:fontFamily="sans-serif-medium"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="56dp"
         app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <!-- Progress percentage top-right -->
+    <TextView
+        android:id="@+id/progressPercent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0%"
+        android:textColor="#FF1132D4"
+        android:textSize="12sp"
+        android:fontFamily="sans-serif-bold"
+        android:layout_marginEnd="24dp"
+        android:layout_marginTop="56dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Progress bar -->
+    <ProgressBar
+        android:id="@+id/focusProgressBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="0dp"
+        android:layout_height="4dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginTop="8dp"
+        android:progressDrawable="@drawable/progress_bar_drawable"
+        android:progress="0"
+        android:max="100"
+        app:layout_constraintTop_toBottomOf="@id/spiritualFocusLabel"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Custom circular arc timer view -->
+    <com.sujood.app.ui.views.CircularTimerView
+        android:id="@+id/circularTimer"
+        android:layout_width="260dp"
+        android:layout_height="260dp"
+        android:layout_marginTop="48dp"
+        app:layout_constraintTop_toBottomOf="@id/focusProgressBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- MM:SS countdown inside the arc -->
+    <TextView
+        android:id="@+id/timerText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="05:00"
+        android:textColor="#FFFFFFFF"
+        android:textSize="60sp"
+        android:fontFamily="sans-serif-light"
+        android:letterSpacing="-0.03"
+        app:layout_constraintTop_toTopOf="@id/circularTimer"
+        app:layout_constraintBottom_toBottomOf="@id/circularTimer"
+        app:layout_constraintStart_toStartOf="@id/circularTimer"
+        app:layout_constraintEnd_toEndOf="@id/circularTimer"
+        app:layout_constraintVertical_bias="0.42"/>
+
+    <!-- REMAINING label -->
+    <TextView
+        android:id="@+id/remainingLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="REMAINING"
+        android:textColor="#668892A4"
+        android:textSize="11sp"
+        android:letterSpacing="0.15"
+        android:fontFamily="sans-serif-medium"
+        android:layout_marginTop="4dp"
+        app:layout_constraintTop_toBottomOf="@id/timerText"
+        app:layout_constraintStart_toStartOf="@id/circularTimer"
+        app:layout_constraintEnd_toEndOf="@id/circularTimer"/>
+
+    <!-- Quote marks -->
+    <TextView
+        android:id="@+id/quoteMarks"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="\u201C\u201C"
+        android:textColor="#331132D4"
+        android:textSize="48sp"
+        android:layout_marginTop="40dp"
+        app:layout_constraintTop_toBottomOf="@id/circularTimer"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Quote text -->
+    <TextView
+        android:id="@+id/quoteText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="\u201cSuccess is found in the prayer.\u201d"
+        android:textColor="#E6FFFFFF"
+        android:textSize="24sp"
+        android:fontFamily="sans-serif-light"
+        android:fontStyle="italic"
+        android:textAlignment="center"
+        android:gravity="center"
+        android:layout_marginStart="32dp"
+        android:layout_marginEnd="32dp"
+        android:layout_marginTop="4dp"
+        app:layout_constraintTop_toBottomOf="@id/quoteMarks"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Thin divider line -->
+    <View
+        android:id="@+id/divider"
+        android:layout_width="48dp"
+        android:layout_height="1dp"
+        android:background="#33FFFFFF"
+        android:layout_marginTop="28dp"
+        app:layout_constraintTop_toBottomOf="@id/quoteText"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Sujood icon + branding at bottom -->
+    <ImageView
+        android:id="@+id/sujoodIcon"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:src="@drawable/ic_prayer_icon"
+        android:colorFilter="#661132D4"
+        android:layout_marginBottom="52dp"
+        app:layout_constraintBottom_toTopOf="@id/focusModeLabel"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <LinearLayout
+        android:id="@+id/brandingRow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="36dp"
+        app:layout_constraintBottom_toTopOf="@id/focusModeLabel"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageView
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_prayer_icon"
+            android:colorFilter="#661132D4"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="  SUJOOD"
+            android:textColor="#FFFFFFFF"
+            android:textSize="18sp"
+            android:fontFamily="sans-serif-bold"
+            android:letterSpacing="0.1"/>
+
+    </LinearLayout>
+
+    <!-- DEEP FOCUS MODE ACTIVE -->
+    <TextView
+        android:id="@+id/focusModeLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="DEEP FOCUS MODE ACTIVE"
+        android:textColor="#668892A4"
+        android:textSize="10sp"
+        android:letterSpacing="0.2"
+        android:fontFamily="sans-serif-medium"
+        android:layout_marginBottom="24dp"
+        app:layout_constraintBottom_toTopOf="@id/iPrayedButton"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- I've Prayed button -->
+    <Button
+        android:id="@+id/iPrayedButton"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:text="I\u2019ve Prayed \u2713"
+        android:textColor="#FFFFFFFF"
+        android:textSize="16sp"
+        android:fontFamily="sans-serif-medium"
+        android:background="@drawable/prayed_button_bg"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="32dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <TextView
-        android:id="@+id/prayerArabicText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="الصلاة"
-        android:textColor="#A78BFA"
-        android:textSize="24sp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/prayerNameText"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
-    <Button
-        android:id="@+id/iPrayedButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="I Prayed ✓"
-        android:textColor="#FFFFFF"
-        android:background="@drawable/button_background"
-        android:paddingHorizontal="48dp"
-        android:paddingVertical="16dp"
-        android:layout_marginTop="32dp"
-        app:layout_constraintTop_toBottomOf="@id/prayerArabicText"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
+    <!-- Hidden mute button (still functional, tap anywhere on timer area) -->
     <Button
         android:id="@+id/muteButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Mute Audio"
-        android:textColor="#FFFFFF"
-        android:background="#44FFFFFF"
-        android:paddingHorizontal="32dp"
-        android:paddingVertical="12dp"
-        android:layout_marginTop="16dp"
-        app:layout_constraintTop_toBottomOf="@id/iPrayedButton"
+        android:text="Mute"
+        android:textColor="#66FFFFFF"
+        android:background="@null"
+        android:textSize="12sp"
+        android:layout_marginBottom="8dp"
+        app:layout_constraintBottom_toTopOf="@id/iPrayedButton"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

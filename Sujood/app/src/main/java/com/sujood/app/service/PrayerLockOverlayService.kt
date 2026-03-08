@@ -2,7 +2,6 @@ package com.sujood.app.service
 
 import android.annotation.SuppressLint
 import android.app.Notification
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
@@ -15,7 +14,6 @@ import android.hardware.SensorManager
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.RingtoneManager
-import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
@@ -23,25 +21,20 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import com.sujood.app.MainActivity
 import com.sujood.app.R
 import com.sujood.app.SujoodApplication
 import com.sujood.app.data.api.RetrofitClient
+import com.sujood.app.data.local.datastore.UserPreferences
 import com.sujood.app.data.repository.PrayerTimesRepository
 import com.sujood.app.domain.model.Prayer
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import com.sujood.app.ui.views.CircularTimerView
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.delay
 
-/**
- * Service that displays a full-screen overlay during prayer times.
- * This is a foreground service to ensure it stays active and can draw over other apps.
- */
 class PrayerLockOverlayService : Service() {
 
     private var windowManager: WindowManager? = null
@@ -53,13 +46,7 @@ class PrayerLockOverlayService : Service() {
 
     private val sensorListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
-            if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-                val z = event.values[2]
-                // Detect face down (z < -8)
-                if (z < -8f) {
-                    muteAudio()
-                }
-            }
+            if (event.sensor.type == Sensor.TYPE_ACCELEROMETER && event.values[2] < -8f) muteAudio()
         }
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
     }
@@ -74,30 +61,36 @@ class PrayerLockOverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val prayerName = intent?.getStringExtra(PRAYER_NAME) ?: "Prayer"
+        val prayerName   = intent?.getStringExtra(PRAYER_NAME)   ?: "Prayer"
         val prayerArabic = intent?.getStringExtra(PRAYER_ARABIC) ?: "الصلاة"
 
-        // Create notification for foreground service
         startForeground(NOTIFICATION_ID, createNotification(prayerName))
 
-        // Show the full-screen overlay
-        showOverlay(prayerName, prayerArabic)
-
-        // Read settings before playing audio / vibrating
         serviceScope.launch {
-            val userPrefs = com.sujood.app.data.local.datastore.UserPreferences(applicationContext)
-            val settings = userPrefs.userSettings.first()
+            val prefs    = UserPreferences(applicationContext)
+            val settings = prefs.userSettings.first()
 
-            if (settings.adhanEnabled) {
-                launch(Dispatchers.Main) { playAlert() }
+            // Respect global prayer lock toggle
+            if (!settings.prayerLockEnabled) {
+                stopSelf()
+                return@launch
             }
 
-            if (settings.vibrationEnabled) {
-                launch(Dispatchers.Main) { vibrateDevice() }
+            // Audio / vibration
+            if (settings.adhanEnabled)    launch(Dispatchers.Main) { playAdhan() }
+            if (settings.vibrationEnabled) launch(Dispatchers.Main) { vibrateDevice() }
+
+            // Show overlay on main thread
+            val minDurationMs = settings.minLockDurationMinutes * 60 * 1000L
+            val quote = settings.overlayQuote.ifEmpty {
+                "\"Indeed, prayer has been decreed upon the believers at specified times.\""
+            }
+
+            launch(Dispatchers.Main) {
+                showOverlay(prayerName, quote, minDurationMs)
             }
         }
 
-        // Start Sensor
         accelerometer?.let {
             sensorManager?.registerListener(sensorListener, it, SensorManager.SENSOR_DELAY_NORMAL)
         }
@@ -105,109 +98,86 @@ class PrayerLockOverlayService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun vibrateDevice() {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val manager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
-                manager.defaultVibrator.vibrate(
-                    android.os.VibrationEffect.createWaveform(longArrayOf(0, 500, 500, 500), -1)
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(longArrayOf(0, 500, 500, 500), -1)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun createNotification(prayerName: String): Notification {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
-        
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
-        )
-
-        return NotificationCompat.Builder(this, SujoodApplication.OVERLAY_CHANNEL_ID)
-            .setContentTitle("Prayer Reminder")
-            .setContentText("It's time for $prayerName")
-            .setSmallIcon(R.drawable.ic_prayer_icon)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setFullScreenIntent(pendingIntent, true)
-            .setContentIntent(pendingIntent)
-            .build()
-    }
-
     @SuppressLint("InflateParams")
-    private fun showOverlay(prayerName: String, prayerArabic: String) {
+    private fun showOverlay(prayerName: String, quote: String, minDurationMs: Long) {
         if (overlayView != null) return
 
         val inflater = getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
-        overlayView = inflater.inflate(R.layout.prayer_lock_overlay, null)
+        overlayView  = inflater.inflate(R.layout.prayer_lock_overlay, null)
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            } else {
-                @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_PHONE
-            },
-            // Do NOT include FLAG_NOT_TOUCH_MODAL — we want to block all background touches
+            else
+                @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
                     WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
                     WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
                     WindowManager.LayoutParams.FLAG_FULLSCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.CENTER
-        }
+            PixelFormat.OPAQUE
+        ).apply { gravity = Gravity.CENTER }
 
-        // Setup Overlay Content
-        overlayView?.apply {
-            findViewById<TextView>(R.id.prayerNameText)?.text = "Time for $prayerName"
-            findViewById<TextView>(R.id.prayerArabicText)?.text = prayerArabic
-            
-            val iPrayedButton = findViewById<Button>(R.id.iPrayedButton)
-            iPrayedButton?.setOnClickListener {
-                onPrayerCompleted(prayerName)
-            }
+        overlayView!!.apply {
+            // Quote
+            findViewById<TextView>(R.id.quoteText)?.text = quote
 
-            findViewById<Button>(R.id.muteButton)?.setOnClickListener {
-                muteAudio()
-            }
+            val circularTimer   = findViewById<CircularTimerView>(R.id.circularTimer)
+            val timerText       = findViewById<TextView>(R.id.timerText)
+            val progressBar     = findViewById<ProgressBar>(R.id.focusProgressBar)
+            val progressPercent = findViewById<TextView>(R.id.progressPercent)
+            val iPrayedButton   = findViewById<Button>(R.id.iPrayedButton)
 
-            // Enforce minimum duration
-            serviceScope.launch(Dispatchers.Main) {
-                val userPrefs = com.sujood.app.data.local.datastore.UserPreferences(applicationContext)
-                val settings = userPrefs.userSettings.first()
-                val minDurationMs = settings.minLockDurationMinutes * 60 * 1000L
-                
-                if (minDurationMs > 0L) {
-                    iPrayedButton?.isEnabled = false
-                    val startTime = System.currentTimeMillis()
-                    
-                    while (System.currentTimeMillis() - startTime < minDurationMs) {
-                        val remainingSec = ((minDurationMs - (System.currentTimeMillis() - startTime)) / 1000L).toInt()
-                        val mins = remainingSec / 60
-                        val secs = remainingSec % 60
-                        iPrayedButton?.text = String.format("Praying... (%02d:%02d)", mins, secs)
-                        delay(1000)
-                    }
-                }
-                
+            // Mute: tap the arc area
+            circularTimer?.setOnClickListener { muteAudio() }
+
+            if (minDurationMs <= 0L) {
+                // No minimum — button active immediately, no timer shown
+                timerText?.text  = ""
+                circularTimer?.progress = 0f
+                progressBar?.progress  = 100
+                progressPercent?.text  = "100%"
                 iPrayedButton?.isEnabled = true
-                iPrayedButton?.text = "I've Prayed ✓"
+                iPrayedButton?.setOnClickListener { onPrayerCompleted(prayerName) }
+            } else {
+                iPrayedButton?.isEnabled = false
+                iPrayedButton?.alpha = 0.4f
+
+                // Countdown loop
+                serviceScope.launch(Dispatchers.Main) {
+                    val totalMs   = minDurationMs
+                    val startTime = System.currentTimeMillis()
+
+                    while (true) {
+                        val elapsed   = System.currentTimeMillis() - startTime
+                        val remaining = (totalMs - elapsed).coerceAtLeast(0L)
+                        val fraction  = remaining.toFloat() / totalMs.toFloat()
+                        val pct       = ((1f - fraction) * 100).toInt().coerceIn(0, 100)
+
+                        val totalSec = (remaining / 1000L).toInt()
+                        val mins     = totalSec / 60
+                        val secs     = totalSec % 60
+
+                        timerText?.text       = String.format("%02d:%02d", mins, secs)
+                        circularTimer?.progress = fraction
+                        progressBar?.progress   = pct
+                        progressPercent?.text   = "$pct%"
+
+                        if (remaining <= 0L) break
+                        delay(500)
+                    }
+
+                    // Timer done — unlock button
+                    timerText?.text       = "00:00"
+                    circularTimer?.progress = 0f
+                    progressBar?.progress   = 100
+                    progressPercent?.text   = "100%"
+                    iPrayedButton?.isEnabled = true
+                    iPrayedButton?.alpha    = 1f
+                    iPrayedButton?.setOnClickListener { onPrayerCompleted(prayerName) }
+                }
             }
         }
 
@@ -222,78 +192,89 @@ class PrayerLockOverlayService : Service() {
     private fun onPrayerCompleted(prayerName: String) {
         serviceScope.launch {
             try {
-                val app = application as SujoodApplication
-                val repository = PrayerTimesRepository(
-                    RetrofitClient.aladhanApiService,
-                    app.database.prayerLogDao()
-                )
-                
-                val prayer = try {
-                    Prayer.valueOf(prayerName.uppercase())
-                } catch (e: Exception) {
-                    null
-                }
-                
-                prayer?.let { repository.logPrayerCompletion(it) }
-                
-                // Switch back to Main thread for UI updates
-                launch(Dispatchers.Main) {
-                    dismissOverlay()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                launch(Dispatchers.Main) {
-                    dismissOverlay()
-                }
-            }
+                val app  = application as SujoodApplication
+                val repo = PrayerTimesRepository(RetrofitClient.aladhanApiService, app.database.prayerLogDao())
+                val prayer = try { Prayer.valueOf(prayerName.uppercase()) } catch (e: Exception) { null }
+                prayer?.let { repo.logPrayerCompletion(it) }
+            } catch (e: Exception) { e.printStackTrace() }
+            launch(Dispatchers.Main) { dismissOverlay() }
         }
     }
 
-    private fun playAlert() {
+    private fun createNotification(prayerName: String): Notification {
+        val pi = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            },
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        )
+        return NotificationCompat.Builder(this, SujoodApplication.OVERLAY_CHANNEL_ID)
+            .setContentTitle("Prayer Reminder")
+            .setContentText("It's time for $prayerName")
+            .setSmallIcon(R.drawable.ic_prayer_icon)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setFullScreenIntent(pi, true)
+            .setContentIntent(pi)
+            .build()
+    }
+
+    private fun playAdhan() {
         try {
-            val alertUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            
+            val adhanUrl = "https://cdn.islamic.network/quran/audio/128/ar.alafasy/1.mp3"
             mediaPlayer = MediaPlayer().apply {
-                setDataSource(applicationContext, alertUri)
                 setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ALARM)
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build()
                 )
-                isLooping = true
-                prepare()
-                start()
+                setDataSource(adhanUrl)
+                isLooping = false
+                prepareAsync()
+                setOnPreparedListener { it.start() }
+                setOnErrorListener { _, _, _ ->
+                    try {
+                        reset()
+                        setDataSource(applicationContext,
+                            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE))
+                        isLooping = true; prepare(); start()
+                    } catch (ex: Exception) { ex.printStackTrace() }
+                    true
+                }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
     private fun muteAudio() {
         try {
-            mediaPlayer?.let {
-                if (it.isPlaying) {
-                    it.stop()
-                    it.release()
-                }
-            }
+            mediaPlayer?.let { if (it.isPlaying) { it.stop(); it.release() } }
             mediaPlayer = null
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    private fun vibrateDevice() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager)
+                    .defaultVibrator.vibrate(
+                        android.os.VibrationEffect.createWaveform(longArrayOf(0, 500, 300, 500), -1)
+                    )
+            } else {
+                @Suppress("DEPRECATION")
+                (getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator).vibrate(
+                    longArrayOf(0, 500, 300, 500), -1
+                )
+            }
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
     private fun dismissOverlay() {
         muteAudio()
         sensorManager?.unregisterListener(sensorListener)
         overlayView?.let {
-            try {
-                windowManager?.removeView(it)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            try { windowManager?.removeView(it) } catch (e: Exception) { e.printStackTrace() }
             overlayView = null
         }
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -304,18 +285,15 @@ class PrayerLockOverlayService : Service() {
         muteAudio()
         sensorManager?.unregisterListener(sensorListener)
         overlayView?.let {
-            try {
-                windowManager?.removeView(it)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            try { windowManager?.removeView(it) } catch (e: Exception) { e.printStackTrace() }
         }
+        serviceScope.cancel()
         super.onDestroy()
     }
 
     companion object {
         private const val NOTIFICATION_ID = 2002
-        const val PRAYER_NAME = "PRAYER_NAME"
+        const val PRAYER_NAME   = "PRAYER_NAME"
         const val PRAYER_ARABIC = "PRAYER_ARABIC"
 
         fun start(context: Context, prayerName: String, prayerArabic: String) {
@@ -323,11 +301,10 @@ class PrayerLockOverlayService : Service() {
                 putExtra(PRAYER_NAME, prayerName)
                 putExtra(PRAYER_ARABIC, prayerArabic)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 context.startForegroundService(intent)
-            } else {
+            else
                 context.startService(intent)
-            }
         }
 
         fun stop(context: Context) {
