@@ -7,6 +7,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -127,7 +129,9 @@ fun PrayerTimeCard(
 fun CountdownTimer(
     nextPrayerName: String,
     timeRemainingMillis: Long,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isCompleted: Boolean = false,
+    onCompleteClick: () -> Unit = {}
 ) {
     val hours = (timeRemainingMillis / (1000 * 60 * 60)).toInt()
     val minutes = ((timeRemainingMillis / (1000 * 60)) % 60).toInt()
@@ -156,35 +160,60 @@ fun CountdownTimer(
         
         Spacer(modifier = Modifier.height(4.dp))
         
-        Text(
-            text = nextPrayerName,
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Light,
-            color = SoftPurple
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = nextPrayerName,
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.Light,
+                color = SoftPurple
+            )
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            // Circular tick box
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isCompleted) SuccessGreen.copy(alpha = 0.2f) 
+                        else Color.White.copy(alpha = 0.1f)
+                    )
+                    .border(
+                        1.5.dp, 
+                        if (isCompleted) SuccessGreen else Color.White.copy(alpha = 0.3f), 
+                        CircleShape
+                    )
+                    .clickable { onCompleteClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                if (isCompleted) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Completed",
+                        tint = SuccessGreen,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        // Countdown display
+        // Countdown display - Simple text as requested, no boxes
         Row(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            CountdownUnit(value = hours, label = "Hours")
             Text(
-                text = ":",
+                text = String.format("%02d:%02d:%02d", hours, minutes, seconds),
                 style = MaterialTheme.typography.displayMedium,
-                color = WarmAmber,
-                modifier = Modifier.padding(horizontal = 4.dp)
+                fontWeight = FontWeight.Light,
+                color = WarmAmber
             )
-            CountdownUnit(value = minutes, label = "Min")
-            Text(
-                text = ":",
-                style = MaterialTheme.typography.displayMedium,
-                color = WarmAmber,
-                modifier = Modifier.padding(horizontal = 4.dp)
-            )
-            CountdownUnit(value = seconds, label = "Sec")
         }
     }
 }

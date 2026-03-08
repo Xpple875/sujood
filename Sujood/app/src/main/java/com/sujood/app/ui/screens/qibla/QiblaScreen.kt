@@ -17,15 +17,19 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.sujood.app.data.local.datastore.UserPreferences
 import com.sujood.app.ui.components.AnimatedGradientBackground
 import com.sujood.app.ui.theme.LavenderGlow
 import com.sujood.app.ui.theme.SoftPurple
@@ -67,25 +72,37 @@ fun QiblaScreen() {
     var isFacingQibla by remember { mutableStateOf(false) }
     var hasLocation by remember { mutableStateOf(false) }
 
+    val userPreferences = remember { UserPreferences(context) }
+    
     // Get last known location to compute accurate Qibla direction
     LaunchedEffect(Unit) {
-        try {
-            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-
-            location?.let {
-                userLatitude = it.latitude
-                userLongitude = it.longitude
+        userPreferences.userSettings.first().let { settings ->
+            if (settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0) {
+                userLatitude = settings.savedLatitude
+                userLongitude = settings.savedLongitude
                 hasLocation = true
-
                 qiblaDirection = calculateQiblaDirection(
                     userLatitude, userLongitude,
                     KAABA_LATITUDE, KAABA_LONGITUDE
                 )
+            } else {
+                // Fallback to GPS if no saved coords
+                try {
+                    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                    val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                        ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+
+                    location?.let {
+                        userLatitude = it.latitude
+                        userLongitude = it.longitude
+                        hasLocation = true
+                        qiblaDirection = calculateQiblaDirection(
+                            userLatitude, userLongitude,
+                            KAABA_LATITUDE, KAABA_LONGITUDE
+                        )
+                    }
+                } catch (e: SecurityException) { }
             }
-        } catch (e: SecurityException) {
-            // Keep default direction
         }
     }
 
@@ -307,12 +324,23 @@ fun QiblaScreen() {
                         )
                         .padding(horizontal = 10.dp, vertical = 5.dp)
                 ) {
-                    Text(
-                        text = "N",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (isFacingQibla) WarmAmber else Color.White.copy(alpha = 0.7f),
-                        fontWeight = FontWeight.Bold
-                    )
+                    // Kaaba Icon instead of "N"
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .background(Color.Black, RoundedCornerShape(2.dp))
+                            .border(1.dp, Color(0xFFFFD700).copy(alpha = 0.5f), RoundedCornerShape(2.dp)),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        // Golden belt of the Kaaba
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(3.dp)
+                                .padding(top = 4.dp)
+                                .background(Color(0xFFFFD700))
+                        )
+                    }
                 }
             }
 

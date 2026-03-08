@@ -36,6 +36,8 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -99,29 +101,49 @@ fun DhikrScreen() {
         ) {
             // ── Header ──
             item {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .padding(horizontal = 24.dp, vertical = 24.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    var showHelp by remember { mutableStateOf(false) }
+                    
+                    if (showHelp) {
+                        HelpOverlay(onDismiss = { showHelp = false })
+                    }
+
+                    Box(modifier = Modifier.size(24.dp)) // Spacer for symmetry
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = SoftPurple,
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Prayer Lock",
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Light,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Focus. Pray. Return.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                    }
+
                     Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = null,
-                        tint = SoftPurple,
-                        modifier = Modifier.size(40.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Prayer Lock",
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Light,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "Focus. Pray. Return.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
+                        imageVector = Icons.Outlined.HelpOutline,
+                        contentDescription = "Help",
+                        tint = LavenderGlow,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clickable { showHelp = true }
                     )
                 }
             }
@@ -195,6 +217,20 @@ fun DhikrScreen() {
                 }
             }
 
+            // ── App Selection (Only if App Overlay Mode) ──
+            if (settings.lockMode == LockMode.APP_OVERLAY) {
+                item {
+                    AppSelectorCard(
+                        selectedApps = settings.lockedAppsPackageNames,
+                        onAppsChanged = { newApps ->
+                            CoroutineScope(Dispatchers.IO).launch {
+                                userPreferences.saveLockBehavior(settings.minLockDurationMinutes, newApps)
+                            }
+                        }
+                    )
+                }
+            }
+
             // ── Trigger timing ──
             item {
                 FrostedGlassCard(
@@ -253,6 +289,69 @@ fun DhikrScreen() {
                         Text(
                             text = if (settings.lockTriggerMinutes == 0) "Lock activates at prayer time"
                                    else "Lock activates ${settings.lockTriggerMinutes} minutes after prayer time",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                }
+            }
+
+            // ── Minimum Prayer Duration ──
+            item {
+                FrostedGlassCard(
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                    cornerRadius = 24.dp
+                ) {
+                    Column {
+                        Text(
+                            text = "MINIMUM PRAYER DURATION",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextSecondary,
+                            letterSpacing = androidx.compose.ui.unit.TextUnit(1.5f, androidx.compose.ui.unit.TextUnitType.Sp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        val durationOptions = listOf(0, 2, 5, 10)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            durationOptions.forEach { minutes ->
+                                val isSelected = settings.minLockDurationMinutes == minutes
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            if (isSelected) LavenderGlow.copy(alpha = 0.2f)
+                                            else MidnightBlue.copy(alpha = 0.4f)
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (isSelected) LavenderGlow.copy(alpha = 0.7f) else GlassBorder,
+                                            RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable {
+                                            CoroutineScope(Dispatchers.IO).launch {
+                                                userPreferences.saveLockBehavior(minutes, settings.lockedAppsPackageNames)
+                                            }
+                                        }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (minutes == 0) "None" else "${minutes}m",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (isSelected) LavenderGlow else TextSecondary,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (settings.minLockDurationMinutes == 0) "No minimum duration enforced"
+                                   else "Lock cannot be dismissed for at least ${settings.minLockDurationMinutes} minutes",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
                         )
@@ -656,8 +755,157 @@ fun OverlayPreviewScreen(onDismiss: () -> Unit) {
                 text = "← Dismiss Preview",
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary,
-                modifier = Modifier.clickable { onDismiss() }
+                modifier = Modifier.padding(top = 16.dp).clickable { onDismiss() }
             )
+        }
+    }
+}
+
+@Composable
+private fun HelpOverlay(onDismiss: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.9f))
+            .clickable { onDismiss() } // Dimiss on click outside
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        FrostedGlassCard(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            cornerRadius = 32.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                   modifier = Modifier.fillMaxWidth(),
+                   horizontalArrangement = Arrangement.End
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color.White,
+                        modifier = Modifier.clickable { onDismiss() }
+                    )
+                }
+                
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = SoftPurple,
+                    modifier = Modifier.size(48.dp)
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = "How it works",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.White
+                )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                HelpItem(
+                    title = "Aggressive Lock",
+                    desc = "Whole Phone mode blocks everything except the Sujood app until you finish praying."
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                HelpItem(
+                    title = "App Overlay",
+                    desc = "Locks specific distracting apps (like TikTok or Instagram) when it's prayer time."
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                HelpItem(
+                    title = "Minimum Duration",
+                    desc = "The lock stays active for at least 5 minutes to ensure you actually prayed."
+                )
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = SoftPurple)
+                ) {
+                    Text("Got it")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HelpItem(title: String, desc: String) {
+    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
+        Text(text = title, style = MaterialTheme.typography.titleMedium, color = WarmAmber)
+        Text(text = desc, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+    }
+}
+
+@Composable
+private fun AppSelectorCard(selectedApps: String, onAppsChanged: (String) -> Unit) {
+    val commonApps = listOf(
+        "com.zhiliaoapp.musically" to "TikTok",
+        "com.instagram.android" to "Instagram",
+        "com.facebook.katana" to "Facebook",
+        "com.twitter.android" to "X (Twitter)",
+        "com.snapchat.android" to "Snapchat",
+        "com.google.android.youtube" to "YouTube"
+    )
+    
+    val selectedList = remember(selectedApps) { selectedApps.split(",").filter { it.isNotEmpty() } }
+
+    FrostedGlassCard(
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+        cornerRadius = 24.dp
+    ) {
+        Column {
+            Text(
+                text = "BLOCK SPECIFIC APPS",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary,
+                letterSpacing = androidx.compose.ui.unit.TextUnit(1.5f, androidx.compose.ui.unit.TextUnitType.Sp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            commonApps.forEach { (pkg, name) ->
+                val isBlocked = selectedList.contains(pkg)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val newList = if (isBlocked) {
+                                selectedList.filter { it != pkg }
+                            } else {
+                                selectedList + pkg
+                            }
+                            onAppsChanged(newList.joinToString(","))
+                        }
+                        .padding(vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = name, color = if (isBlocked) WarmAmber else Color.White)
+                    Switch(
+                        checked = isBlocked,
+                        onCheckedChange = { 
+                            val newList = if (it) selectedList + pkg else selectedList.filter { it != pkg }
+                            onAppsChanged(newList.joinToString(","))
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = WarmAmber,
+                            checkedTrackColor = WarmAmber.copy(alpha = 0.3f)
+                        )
+                    )
+                }
+            }
         }
     }
 }

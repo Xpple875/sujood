@@ -198,7 +198,8 @@ fun HomeScreen(
                             userName = uiState.userName,
                             nextPrayerInfo = uiState.nextPrayerInfo,
                             prayerTimes = uiState.prayerTimes,
-                            completedPrayers = uiState.completedPrayersToday.toSet()
+                            completedPrayers = uiState.completedPrayersToday.toSet(),
+                            onCompleteClick = { viewModel.logPrayerCompletion(it) }
                         )
                     }
 
@@ -274,7 +275,8 @@ private fun HeroSection(
     userName: String,
     nextPrayerInfo: GetNextPrayerUseCase.NextPrayerInfo?,
     prayerTimes: List<PrayerTime>,
-    completedPrayers: Set<Prayer>
+    completedPrayers: Set<Prayer>,
+    onCompleteClick: (Prayer) -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -350,7 +352,9 @@ private fun HeroSection(
                 CountdownTimer(
                     nextPrayerName = nextInfo.prayer.displayName,
                     timeRemainingMillis = nextInfo.timeRemainingMillis,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    isCompleted = completedPrayers.contains(nextInfo.prayer),
+                    onCompleteClick = { onCompleteClick(nextInfo.prayer) }
                 )
             }
         }

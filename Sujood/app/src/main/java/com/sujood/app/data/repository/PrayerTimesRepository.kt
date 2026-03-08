@@ -84,6 +84,10 @@ class PrayerTimesRepository(
         }
     }
 
+    suspend fun searchCity(query: String): com.sujood.app.data.api.CitySearchResponse {
+        return apiService.searchCity(query)
+    }
+
     /**
      * Parses API response and converts to domain models.
      */

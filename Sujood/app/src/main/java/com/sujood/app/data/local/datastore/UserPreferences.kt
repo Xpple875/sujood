@@ -55,6 +55,8 @@ class UserPreferences(private val context: Context) {
         val LOCK_MODE = stringPreferencesKey("lock_mode")
         val LOCK_TRIGGER_MINUTES = intPreferencesKey("lock_trigger_minutes")
         val LOCK_DURATION_MINUTES = intPreferencesKey("lock_duration_minutes")
+        val MIN_LOCK_DURATION_MINUTES = intPreferencesKey("min_lock_duration_minutes")
+        val LOCKED_APPS_PACKAGE_NAMES = stringPreferencesKey("locked_apps_package_names")
         val ADHAN_ENABLED = booleanPreferencesKey("adhan_enabled")
         val VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
     }
@@ -87,6 +89,8 @@ class UserPreferences(private val context: Context) {
             lockMode = try { LockMode.valueOf(preferences[PreferencesKeys.LOCK_MODE] ?: LockMode.WHOLE_PHONE.name) } catch (e: Exception) { LockMode.WHOLE_PHONE },
             lockTriggerMinutes = preferences[PreferencesKeys.LOCK_TRIGGER_MINUTES] ?: 0,
             lockDurationMinutes = preferences[PreferencesKeys.LOCK_DURATION_MINUTES] ?: 10,
+            minLockDurationMinutes = preferences[PreferencesKeys.MIN_LOCK_DURATION_MINUTES] ?: 5,
+            lockedAppsPackageNames = preferences[PreferencesKeys.LOCKED_APPS_PACKAGE_NAMES] ?: "",
             adhanEnabled = preferences[PreferencesKeys.ADHAN_ENABLED] ?: true,
             vibrationEnabled = preferences[PreferencesKeys.VIBRATION_ENABLED] ?: true
         )
@@ -162,6 +166,13 @@ class UserPreferences(private val context: Context) {
             preferences[PreferencesKeys.LOCK_MODE] = lockMode.name
             preferences[PreferencesKeys.LOCK_TRIGGER_MINUTES] = triggerMinutes
             preferences[PreferencesKeys.LOCK_DURATION_MINUTES] = durationMinutes
+        }
+    }
+
+    suspend fun saveLockBehavior(minDuration: Int, lockedApps: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MIN_LOCK_DURATION_MINUTES] = minDuration
+            preferences[PreferencesKeys.LOCKED_APPS_PACKAGE_NAMES] = lockedApps
         }
     }
 

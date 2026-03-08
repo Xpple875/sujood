@@ -1,0 +1,97 @@
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:kspDebugKotlin
+
+> Task :app:compileDebugKotlin
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/components/PrayerComponents.kt:189:22 Unresolved reference: clickable
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/qibla/QiblaScreen.kt:77:38 Unresolved reference. None of the following candidates is applicable because of receiver type mismatch: 
+public fun <T> Array<out TypeVariable(T)>.first(): TypeVariable(T) defined in kotlin.collections
+public inline fun <T> Array<out TypeVariable(T)>.first(predicate: (TypeVariable(T)) -> Boolean): TypeVariable(T) defined in kotlin.collections
+public fun BooleanArray.first(): Boolean defined in kotlin.collections
+public inline fun BooleanArray.first(predicate: (Boolean) -> Boolean): Boolean defined in kotlin.collections
+public fun ByteArray.first(): Byte defined in kotlin.collections
+public inline fun ByteArray.first(predicate: (Byte) -> Boolean): Byte defined in kotlin.collections
+public fun CharArray.first(): Char defined in kotlin.collections
+public inline fun CharArray.first(predicate: (Char) -> Boolean): Char defined in kotlin.collections
+public fun CharSequence.first(): Char defined in kotlin.text
+public inline fun CharSequence.first(predicate: (Char) -> Boolean): Char defined in kotlin.text
+public fun DoubleArray.first(): Double defined in kotlin.collections
+public inline fun DoubleArray.first(predicate: (Double) -> Boolean): Double defined in kotlin.collections
+public fun FloatArray.first(): Float defined in kotlin.collections
+public inline fun FloatArray.first(predicate: (Float) -> Boolean): Float defined in kotlin.collections
+public fun IntArray.first(): Int defined in kotlin.collections
+public inline fun IntArray.first(predicate: (Int) -> Boolean): Int defined in kotlin.collections
+public fun LongArray.first(): Long defined in kotlin.collections
+public inline fun LongArray.first(predicate: (Long) -> Boolean): Long defined in kotlin.collections
+public fun ShortArray.first(): Short defined in kotlin.collections
+public inline fun ShortArray.first(predicate: (Short) -> Boolean): Short defined in kotlin.collections
+public inline fun UByteArray.first(): UByte defined in kotlin.collections
+public inline fun UByteArray.first(predicate: (UByte) -> Boolean): UByte defined in kotlin.collections
+public inline fun UIntArray.first(): UInt defined in kotlin.collections
+public inline fun UIntArray.first(predicate: (UInt) -> Boolean): UInt defined in kotlin.collections
+public inline fun ULongArray.first(): ULong defined in kotlin.collections
+public inline fun ULongArray.first(predicate: (ULong) -> Boolean): ULong defined in kotlin.collections
+public inline fun UShortArray.first(): UShort defined in kotlin.collections
+public inline fun UShortArray.first(predicate: (UShort) -> Boolean): UShort defined in kotlin.collections
+public fun <T> Iterable<TypeVariable(T)>.first(): TypeVariable(T) defined in kotlin.collections
+public inline fun <T> Iterable<TypeVariable(T)>.first(predicate: (TypeVariable(T)) -> Boolean): TypeVariable(T) defined in kotlin.collections
+public fun <T> List<TypeVariable(T)>.first(): TypeVariable(T) defined in kotlin.collections
+public fun CharProgression.first(): Char defined in kotlin.ranges
+public fun IntProgression.first(): Int defined in kotlin.ranges
+public fun LongProgression.first(): Long defined in kotlin.ranges
+public fun UIntProgression.first(): UInt defined in kotlin.ranges
+public fun ULongProgression.first(): ULong defined in kotlin.ranges
+public fun <T> Sequence<TypeVariable(T)>.first(): TypeVariable(T) defined in kotlin.sequences
+public inline fun <T> Sequence<TypeVariable(T)>.first(predicate: (TypeVariable(T)) -> Boolean): TypeVariable(T) defined in kotlin.sequences
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/qibla/QiblaScreen.kt:77:52 Cannot infer a type for this parameter. Please specify it explicitly.
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/qibla/QiblaScreen.kt:175:52 Unresolved reference: fillMaxSize
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/qibla/QiblaScreen.kt:178:18 Unresolved reference: fillMaxSize
+
+> Task :app:compileDebugKotlin FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 6s
+30 actionable tasks: 3 executed, 27 up-to-date

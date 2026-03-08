@@ -35,6 +35,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.delay
 
 /**
  * Service that displays a full-screen overlay during prayer times.
@@ -134,10 +136,13 @@ class PrayerLockOverlayService : Service() {
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
                     WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_FULLSCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.CENTER
+            // Force focus to prevent background interaction
+            flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
         }
 
         // Setup Overlay Content
@@ -145,12 +150,36 @@ class PrayerLockOverlayService : Service() {
             findViewById<TextView>(R.id.prayerNameText)?.text = "Time for $prayerName"
             findViewById<TextView>(R.id.prayerArabicText)?.text = prayerArabic
             
-            findViewById<Button>(R.id.iPrayedButton)?.setOnClickListener {
+            val iPrayedButton = findViewById<Button>(R.id.iPrayedButton)
+            iPrayedButton?.setOnClickListener {
                 onPrayerCompleted(prayerName)
             }
 
             findViewById<Button>(R.id.muteButton)?.setOnClickListener {
                 muteAudio()
+            }
+
+            // Enforce minimum duration
+            serviceScope.launch(Dispatchers.Main) {
+                val userPrefs = com.sujood.app.data.local.datastore.UserPreferences(applicationContext)
+                val settings = userPrefs.userSettings.first()
+                val minDurationMs = settings.minLockDurationMinutes * 60 * 1000L
+                
+                if (minDurationMs > 0L) {
+                    iPrayedButton?.isEnabled = false
+                    val startTime = System.currentTimeMillis()
+                    
+                    while (System.currentTimeMillis() - startTime < minDurationMs) {
+                        val remainingSec = ((minDurationMs - (System.currentTimeMillis() - startTime)) / 1000L).toInt()
+                        val mins = remainingSec / 60
+                        val secs = remainingSec % 60
+                        iPrayedButton?.text = String.format("Praying... (%02d:%02d)", mins, secs)
+                        delay(1000)
+                    }
+                }
+                
+                iPrayedButton?.isEnabled = true
+                iPrayedButton?.text = "I've Prayed ✓"
             }
         }
 

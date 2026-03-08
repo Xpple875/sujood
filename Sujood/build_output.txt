@@ -1,0 +1,75 @@
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:kspDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+
+> Task :app:compileDebugKotlin
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/service/PrayerLockOverlayService.kt:164:55 Unresolved reference: kotlinx
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/service/PrayerLockOverlayService.kt:171:67 Overload resolution ambiguity: 
+public final operator fun compareTo(other: Byte): Int defined in kotlin.Long
+public final operator fun compareTo(other: Double): Int defined in kotlin.Long
+public final operator fun compareTo(other: Float): Int defined in kotlin.Long
+public final operator fun compareTo(other: Int): Int defined in kotlin.Long
+public open fun compareTo(other: Long): Int defined in kotlin.Long
+public final operator fun compareTo(other: Short): Int defined in kotlin.Long
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/components/BottomNavBar.kt:76:14 Unresolved reference: navigationBarsPadding
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/components/PrayerComponents.kt:183:22 Unresolved reference: border
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/dhikr/DhikrScreen.kt:101:17 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/dhikr/DhikrScreen.kt:138:78 Unresolved reference: HelpOutline
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/dhikr/DhikrScreen.kt:783:78 Unresolved reference: Close
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/home/HomeScreen.kt:354:35 Unresolved reference: uiState
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/home/HomeScreen.kt:355:41 Unresolved reference: viewModel
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/qibla/QiblaScreen.kt:70:38 Unresolved reference: UserPreferences
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/qibla/QiblaScreen.kt:74:25 Unresolved reference: userSettings
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/qibla/QiblaScreen.kt:74:52 Cannot infer a type for this parameter. Please specify it explicitly.
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/qibla/QiblaScreen.kt:326:54 Unresolved reference: RoundedCornerShape
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/qibla/QiblaScreen.kt:327:81 Unresolved reference: RoundedCornerShape
+e: file:///C:/Users/hamza/Desktop/sujood%20(prayer%20lock)/Sujood/app/src/main/java/com/sujood/app/ui/screens/qibla/QiblaScreen.kt:333:34 Unresolved reference: fillMaxWidth
+
+> Task :app:compileDebugKotlin FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 5s
+30 actionable tasks: 2 executed, 28 up-to-date

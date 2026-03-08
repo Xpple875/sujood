@@ -120,6 +120,8 @@ data class UserSettings(
     val lockMode: LockMode = LockMode.WHOLE_PHONE,
     val lockTriggerMinutes: Int = 0,  // 0 = at prayer time, >0 = minutes after
     val lockDurationMinutes: Int = 10,
+    val minLockDurationMinutes: Int = 5,
+    val lockedAppsPackageNames: String = "",
     val adhanEnabled: Boolean = true,
     val vibrationEnabled: Boolean = true
 )
