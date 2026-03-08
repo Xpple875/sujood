@@ -24,6 +24,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.graphics.drawable.toBitmap
 import com.sujood.app.data.local.datastore.UserPreferences
 import com.sujood.app.domain.model.LockMode
 import com.sujood.app.domain.model.UserSettings
@@ -179,11 +181,7 @@ fun DhikrScreen() {
                                             horizontalArrangement = Arrangement.SpaceBetween) {
                                             Row(verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                                Box(modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
-                                                    .background(if (isLocked) PrimaryBlue.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f)),
-                                                    contentAlignment = Alignment.Center) {
-                                                    Text(app.emoji, fontSize = 18.sp)
-                                                }
+                                                AppIconBox(packageName = app.packageName, appName = app.name, isLocked = isLocked)
                                                 Text(app.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White)
                                             }
                                             Switch(checked = isLocked,
@@ -324,6 +322,51 @@ fun DhikrScreen() {
 }
 
 // ── Reusable composables ──────────────────────────────────────────────────────
+
+@Composable
+private fun AppIconBox(packageName: String, appName: String, isLocked: Boolean) {
+    val context = LocalContext.current
+    val icon = remember(packageName) {
+        try { context.packageManager.getApplicationIcon(packageName) } catch (e: Exception) { null }
+    }
+    val bgColor = if (isLocked) PrimaryBlue.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.05f)
+    Box(
+        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(bgColor),
+        contentAlignment = Alignment.Center
+    ) {
+        if (icon != null) {
+            val bmp = remember(icon) {
+                android.graphics.Bitmap.createScaledBitmap(
+                    icon.toBitmap(), 72, 72, true
+                ).asImageBitmap()
+            }
+            androidx.compose.foundation.Image(
+                bitmap = bmp,
+                contentDescription = appName,
+                modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp))
+            )
+        } else {
+            // Fallback: brand-coloured initial
+            val fallbackBg = when (appName.first().uppercaseChar()) {
+                'T' -> if (appName.contains("Tik")) Color(0xFF010101) else Color(0xFF1DA1F2)
+                'I' -> Color(0xFFE1306C)
+                'Y' -> Color(0xFFFF0000)
+                'S' -> Color(0xFFFFFC00)
+                'F' -> Color(0xFF1877F2)
+                'W' -> Color(0xFF25D366)
+                'R' -> Color(0xFFFF4500)
+                'N' -> Color(0xFFE50914)
+                else -> PrimaryBlue
+            }
+            Box(modifier = Modifier.fillMaxSize().background(fallbackBg, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center) {
+                Text(appName.first().uppercase(), fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (appName.startsWith("S") && appName.contains("nap")) Color.Black else Color.White)
+            }
+        }
+    }
+}
 
 @Composable
 private fun GlassCard(content: @Composable () -> Unit) {

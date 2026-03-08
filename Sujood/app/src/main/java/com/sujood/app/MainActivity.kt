@@ -180,9 +180,18 @@ fun SujoodApp(
                     .padding(innerPadding)
             ) {
                 composable(Screen.Splash.route) {
+                    // Wait for DataStore to emit before deciding which screen to go to.
+                    // Without this, hasCompletedOnboarding is always the default (false)
+                    // at first read, causing onboarding to re-show every launch.
+                    val splashSettings by userPreferences.userSettings.collectAsState(
+                        initial = null
+                    )
                     SplashScreen(
                         onNavigate = {
-                            if (hasCompletedOnboarding) {
+                            // If DataStore hasn't emitted yet, do nothing — splash will call
+                            // onNavigate again after the animation delay
+                            val loaded = splashSettings ?: return@SplashScreen
+                            if (loaded.hasCompletedOnboarding) {
                                 navController.navigate(Screen.Home.route) {
                                     popUpTo(Screen.Splash.route) { inclusive = true }
                                 }

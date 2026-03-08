@@ -125,6 +125,7 @@ data class UserSettings(
     val adhanEnabled: Boolean = true,
     val adhanSoundName: String = "",
     val adhanSoundUrl: String  = "",
+    val adhanVolume: Float = 0.5f,
     val vibrationEnabled: Boolean = true,
     val prayerLockEnabled: Boolean = true,
     val overlayQuote: String = ""

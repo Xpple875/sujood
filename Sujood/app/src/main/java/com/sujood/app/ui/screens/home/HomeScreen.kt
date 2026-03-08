@@ -487,43 +487,52 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPrayerIcon(pray
             }
         }
         Prayer.ASR -> {
-            // Sun low + shadow/partial cloud
-            val cx = w / 2f; val cy = h * 0.55f; val r = w * 0.22f
+            // Orange sun sitting on horizon line — matches screenshot
+            val cx = w / 2f; val cy = h * 0.56f; val r = w * 0.23f
+            // Filled sun
+            drawCircle(color = tint.copy(alpha = 0.22f), radius = r, center = Offset(cx, cy))
             drawCircle(color = tint, radius = r, center = Offset(cx, cy), style = Stroke(width = sw))
-            listOf(0f, 60f, 120f, 240f, 300f).forEach { angle ->
-                val rad = Math.toRadians(angle.toDouble())
+            // Horizon line through lower sun
+            drawLine(tint, Offset(0f, cy + r * 0.25f), Offset(w, cy + r * 0.25f),
+                strokeWidth = sw * 0.65f, cap = StrokeCap.Round)
+            // Rays fanning upward only
+            listOf(-60f, -30f, 0f, 30f, 60f).forEach { angle ->
+                val rad = Math.toRadians(angle.toDouble() - 90)
                 drawLine(tint,
-                    Offset(cx + (r + w*0.06f)*cos(rad).toFloat(), cy + (r + h*0.06f)*sin(rad).toFloat()),
-                    Offset(cx + (r + w*0.17f)*cos(rad).toFloat(), cy + (r + h*0.17f)*sin(rad).toFloat()),
-                    strokeWidth = sw * 0.8f, cap = StrokeCap.Round)
+                    Offset(cx + (r + w*0.05f)*cos(rad).toFloat(), cy + (r + h*0.05f)*sin(rad).toFloat()),
+                    Offset(cx + (r + w*0.16f)*cos(rad).toFloat(), cy + (r + h*0.16f)*sin(rad).toFloat()),
+                    strokeWidth = sw * 0.75f, cap = StrokeCap.Round)
             }
-            drawLine(tint, Offset(0f, h * 0.82f), Offset(w, h * 0.82f),
-                strokeWidth = sw * 0.7f, cap = StrokeCap.Round)
         }
         Prayer.MAGHRIB -> {
-            // Crescent moon
-            val cx = w * 0.52f; val cy = h / 2f; val r = w * 0.32f
-            drawArc(color = tint, startAngle = 0f, sweepAngle = 360f, useCenter = false,
+            // Coral/red filled crescent moon — matches screenshot
+            val cx = w * 0.50f; val cy = h * 0.50f; val r = w * 0.30f
+            val moonPath = Path().apply { addOval(Rect(cx - r, cy - r, cx + r, cy + r)) }
+            val cutX = cx + r * 0.38f; val cutY = cy - r * 0.08f; val cutR = r * 0.82f
+            val cutPath = Path().apply { addOval(Rect(cutX - cutR, cutY - cutR, cutX + cutR, cutY + cutR)) }
+            drawPath(moonPath, tint)
+            // Overdraw cutout with exact card background colour
+            drawPath(cutPath, Color(0xFF4C0519).copy(alpha = 0.7f))
+            // Re-outline the visible arc
+            drawArc(color = tint, startAngle = -30f, sweepAngle = 240f, useCenter = false,
                 topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
-                style = Stroke(width = sw))
-            // Cutout circle to make crescent
-            drawCircle(color = Color.Transparent.copy(0f), radius = r * 0.85f,
-                center = Offset(cx + r * 0.42f, cy - r * 0.10f))
-            // Re-draw cutout as background color
-            val cutoutPath = Path()
-            cutoutPath.addOval(Rect(cx + r*0.42f - r*0.85f, cy - r*0.10f - r*0.85f,
-                cx + r*0.42f + r*0.85f, cy - r*0.10f + r*0.85f))
-            drawPath(cutoutPath, Color(0xFF101322))  // match background
+                style = Stroke(width = sw * 0.7f, cap = StrokeCap.Round))
         }
         Prayer.ISHA -> {
-            // Moon + small star
-            val cx = w * 0.48f; val cy = h * 0.52f; val r = w * 0.28f
-            drawArc(color = tint, startAngle = 40f, sweepAngle = 280f, useCenter = false,
-                topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
-                style = Stroke(width = sw, cap = StrokeCap.Round))
-            // Small star top-right
-            drawCircle(color = tint, radius = w * 0.07f,
-                center = Offset(w * 0.80f, h * 0.22f))
+            // Deep-blue filled crescent + diamond star — matches screenshot
+            val cx = w * 0.44f; val cy = h * 0.52f; val r = w * 0.28f
+            val moonPath = Path().apply { addOval(Rect(cx - r, cy - r, cx + r, cy + r)) }
+            val cutX = cx + r * 0.40f; val cutY = cy - r * 0.06f; val cutR = r * 0.78f
+            val cutPath = Path().apply { addOval(Rect(cutX - cutR, cutY - cutR, cutX + cutR, cutY + cutR)) }
+            drawPath(moonPath, tint)
+            drawPath(cutPath, Color(0xFF1E1B4B).copy(alpha = 0.7f))
+            // Diamond star top-right
+            val sx = w * 0.80f; val sy = h * 0.20f; val sr = w * 0.095f
+            val starPath = Path().apply {
+                moveTo(sx, sy - sr); lineTo(sx + sr * 0.38f, sy)
+                lineTo(sx, sy + sr); lineTo(sx - sr * 0.38f, sy); close()
+            }
+            drawPath(starPath, tint)
         }
     }
 }

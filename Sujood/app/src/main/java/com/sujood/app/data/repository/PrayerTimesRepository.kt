@@ -65,18 +65,25 @@ class PrayerTimesRepository(
      * @param madhab School of jurisprudence
      * @return List of PrayerTime objects
      */
+    /**
+     * Accepts "Dubai" or "Dubai, UAE" — splits on comma and passes country separately.
+     * This prevents HTTP 404 from the Aladhan timingsByCity endpoint.
+     */
     suspend fun getPrayerTimesByCity(
         cityName: String,
-        method: CalculationMethod = CalculationMethod.MWL,
+        method: CalculationMethod = CalculationMethod.MAKKAH,
         madhab: Madhab = Madhab.SHAFI
     ): Result<List<PrayerTime>> {
         return try {
+            val parts   = cityName.split(",", limit = 2)
+            val city    = parts[0].trim()
+            val country = if (parts.size > 1) parts[1].trim() else null
             val response = apiService.getPrayerTimesByCity(
-                city = cityName,
-                method = method.code,
-                school = madhab.code
+                city    = city,
+                country = country,
+                method  = method.code,
+                school  = madhab.code
             )
-            
             val prayerTimes = parsePrayerTimesResponse(response)
             Result.success(prayerTimes)
         } catch (e: Exception) {

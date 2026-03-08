@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -60,6 +61,7 @@ class UserPreferences(private val context: Context) {
         val ADHAN_ENABLED = booleanPreferencesKey("adhan_enabled")
         val ADHAN_SOUND_NAME = stringPreferencesKey("adhan_sound_name")
         val ADHAN_SOUND_URL  = stringPreferencesKey("adhan_sound_url")
+        val ADHAN_VOLUME     = floatPreferencesKey("adhan_volume")
         val VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
         val PRAYER_LOCK_ENABLED = booleanPreferencesKey("prayer_lock_enabled")
         val OVERLAY_QUOTE = stringPreferencesKey("overlay_quote")
@@ -98,6 +100,7 @@ class UserPreferences(private val context: Context) {
             adhanEnabled = preferences[PreferencesKeys.ADHAN_ENABLED] ?: true,
             adhanSoundName = preferences[PreferencesKeys.ADHAN_SOUND_NAME] ?: "",
             adhanSoundUrl  = preferences[PreferencesKeys.ADHAN_SOUND_URL]  ?: "",
+            adhanVolume    = preferences[PreferencesKeys.ADHAN_VOLUME]    ?: 0.5f,
             vibrationEnabled = preferences[PreferencesKeys.VIBRATION_ENABLED] ?: true,
             prayerLockEnabled = preferences[PreferencesKeys.PRAYER_LOCK_ENABLED] ?: true,
             overlayQuote = preferences[PreferencesKeys.OVERLAY_QUOTE] ?: ""
@@ -208,6 +211,10 @@ class UserPreferences(private val context: Context) {
             preferences[PreferencesKeys.ADHAN_ENABLED] = adhanEnabled
             preferences[PreferencesKeys.VIBRATION_ENABLED] = vibrationEnabled
         }
+    }
+
+    suspend fun saveAdhanVolume(volume: Float) {
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.ADHAN_VOLUME] = volume }
     }
 
     val userName: Flow<String> = context.dataStore.data.map { preferences ->

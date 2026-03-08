@@ -339,12 +339,18 @@ private fun NameInputScreen(userPreferences: UserPreferences, onContinue: () -> 
 
             Button(
                 onClick = {
-                    scope.launch { userPreferences.saveUserName(name) }
-                    focusManager.clearFocus()
-                    onContinue()
+                    if (name.isNotBlank()) {
+                        scope.launch { userPreferences.saveUserName(name.trim()) }
+                        focusManager.clearFocus()
+                        onContinue()
+                    }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SoftPurple),
+                enabled = name.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SoftPurple,
+                    disabledContainerColor = SoftPurple.copy(alpha = 0.35f)
+                ),
                 shape = RoundedCornerShape(28.dp)
             ) {
                 Text("Continue", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)

@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -298,6 +299,39 @@ fun SettingsScreen(
                         subtitle = settings.adhanSoundName.ifEmpty { "Mishary Al-Afasy" },
                         trailing = { Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) },
                         onClick = { showAdhanDialog = true })
+                    GlassDivider()
+                    // ── Adhan Volume ──────────────────────────────────────
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
+                                    .background(PrimaryBlue.copy(alpha = 0.10f)),
+                                    contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.VolumeUp, null,
+                                        tint = PrimaryBlue, modifier = Modifier.size(22.dp))
+                                }
+                                Text("Adhan Volume", fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium, color = Color.White)
+                            }
+                            Text("${(settings.adhanVolume * 100).toInt()}%",
+                                fontSize = 12.sp, color = SlateText)
+                        }
+                        Slider(
+                            value = settings.adhanVolume,
+                            onValueChange = { v -> scope.launch { userPreferences.saveAdhanVolume(v) } },
+                            valueRange = 0f..1f,
+                            steps = 9,
+                            colors = androidx.compose.material3.SliderDefaults.colors(
+                                thumbColor = PrimaryBlue,
+                                activeTrackColor = PrimaryBlue,
+                                inactiveTrackColor = Color.White.copy(alpha = 0.15f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                     GlassDivider()
                     SettingsRow(icon = Icons.Default.Vibration, title = "Vibration",
                         trailing = {

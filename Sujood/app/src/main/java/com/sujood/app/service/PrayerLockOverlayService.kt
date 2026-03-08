@@ -12,6 +12,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.os.Build
@@ -78,7 +79,7 @@ class PrayerLockOverlayService : Service() {
 
             // Audio / vibration
             val adhanUrl = settings.adhanSoundUrl.ifEmpty { "https://cdn.islamic.network/quran/audio/128/ar.alafasy/1.mp3" }
-            if (settings.adhanEnabled)    launch(Dispatchers.Main) { playAdhan(adhanUrl) }
+            if (settings.adhanEnabled)    launch(Dispatchers.Main) { playAdhan(adhanUrl, settings.adhanVolume) }
             if (settings.vibrationEnabled) launch(Dispatchers.Main) { vibrateDevice() }
 
             // Show overlay on main thread
@@ -133,6 +134,15 @@ class PrayerLockOverlayService : Service() {
 
             // Mute: tap the arc area
             circularTimer?.setOnClickListener { muteAudio() }
+
+            // Emergency: open phone dialer so user can call even during lock
+            val emergencyBtn = findViewById<Button>(R.id.emergencyPhoneButton)
+            emergencyBtn?.setOnClickListener {
+                val dialIntent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                applicationContext.startActivity(dialIntent)
+            }
 
             if (minDurationMs <= 0L) {
                 // No minimum — button active immediately, no timer shown
@@ -221,16 +231,22 @@ class PrayerLockOverlayService : Service() {
             .build()
     }
 
-    private fun playAdhan(adhanUrl: String) {
+    private fun playAdhan(adhanUrl: String, volume: Float) {
         try {
+            // Set stream volume relative to max based on user's preference
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC,
+                (maxVol * volume.coerceIn(0f, 1f)).toInt(), 0)
+
             mediaPlayer = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build()
                 )
-                setDataSource(adhanUrl)
+                setDataSource(adhanUrl as String)
                 isLooping = false
                 prepareAsync()
                 setOnPreparedListener { it.start() }
