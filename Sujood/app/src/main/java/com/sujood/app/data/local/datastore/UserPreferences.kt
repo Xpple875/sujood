@@ -58,6 +58,8 @@ class UserPreferences(private val context: Context) {
         val MIN_LOCK_DURATION_MINUTES = intPreferencesKey("min_lock_duration_minutes")
         val LOCKED_APPS_PACKAGE_NAMES = stringPreferencesKey("locked_apps_package_names")
         val ADHAN_ENABLED = booleanPreferencesKey("adhan_enabled")
+        val ADHAN_SOUND_NAME = stringPreferencesKey("adhan_sound_name")
+        val ADHAN_SOUND_URL  = stringPreferencesKey("adhan_sound_url")
         val VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
         val PRAYER_LOCK_ENABLED = booleanPreferencesKey("prayer_lock_enabled")
         val OVERLAY_QUOTE = stringPreferencesKey("overlay_quote")
@@ -94,6 +96,8 @@ class UserPreferences(private val context: Context) {
             minLockDurationMinutes = preferences[PreferencesKeys.MIN_LOCK_DURATION_MINUTES] ?: 5,
             lockedAppsPackageNames = preferences[PreferencesKeys.LOCKED_APPS_PACKAGE_NAMES] ?: "",
             adhanEnabled = preferences[PreferencesKeys.ADHAN_ENABLED] ?: true,
+            adhanSoundName = preferences[PreferencesKeys.ADHAN_SOUND_NAME] ?: "",
+            adhanSoundUrl  = preferences[PreferencesKeys.ADHAN_SOUND_URL]  ?: "",
             vibrationEnabled = preferences[PreferencesKeys.VIBRATION_ENABLED] ?: true,
             prayerLockEnabled = preferences[PreferencesKeys.PRAYER_LOCK_ENABLED] ?: true,
             overlayQuote = preferences[PreferencesKeys.OVERLAY_QUOTE] ?: ""
@@ -189,6 +193,13 @@ class UserPreferences(private val context: Context) {
     suspend fun saveOverlayQuote(quote: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.OVERLAY_QUOTE] = quote
+        }
+    }
+
+    suspend fun saveAdhanSound(name: String, url: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.ADHAN_SOUND_NAME] = name
+            preferences[PreferencesKeys.ADHAN_SOUND_URL]  = url
         }
     }
 

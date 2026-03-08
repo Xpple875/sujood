@@ -370,13 +370,33 @@ fun QiblaScreen() {
             }
 
             Spacer(modifier = Modifier.height(40.dp))
-            Text("Kaaba, Makkah Al-Mukarramah",
+            val cityLabel = if (userLatitude != 0.0 && userLongitude != 0.0 && hasLocation)
+    remember(userLatitude, userLongitude) {
+        userPreferences.let { null } // resolved below
+    }.let { getCityLabel(context, userLatitude, userLongitude) }
+else "Kaaba, Makkah Al-Mukarramah"
+Text(cityLabel,
                 style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.8f))
             Spacer(modifier = Modifier.height(4.dp))
             Text("21.4225° N, 39.8262° E",
                 style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             Spacer(modifier = Modifier.height(80.dp))
         }
+    }
+}
+
+
+private fun getCityLabel(context: android.content.Context, lat: Double, lon: Double): String {
+    return try {
+        val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
+        @Suppress("DEPRECATION")
+        val addresses = geocoder.getFromLocation(lat, lon, 1)
+        val city = addresses?.firstOrNull()?.let { addr ->
+            addr.locality ?: addr.subAdminArea ?: addr.adminArea ?: addr.countryName
+        }
+        city ?: "Your Location"
+    } catch (e: Exception) {
+        "Your Location"
     }
 }
 

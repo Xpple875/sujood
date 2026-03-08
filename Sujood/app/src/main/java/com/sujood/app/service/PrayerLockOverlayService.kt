@@ -222,7 +222,7 @@ class PrayerLockOverlayService : Service() {
 
     private fun playAdhan() {
         try {
-            val adhanUrl = "https://cdn.islamic.network/quran/audio/128/ar.alafasy/1.mp3"
+            val adhanUrl = settings.adhanSoundUrl.ifEmpty { "https://cdn.islamic.network/quran/audio/128/ar.alafasy/1.mp3" }
             mediaPlayer = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()

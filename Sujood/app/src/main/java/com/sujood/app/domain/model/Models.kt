@@ -123,6 +123,8 @@ data class UserSettings(
     val minLockDurationMinutes: Int = 5,
     val lockedAppsPackageNames: String = "",
     val adhanEnabled: Boolean = true,
+    val adhanSoundName: String = "",
+    val adhanSoundUrl: String  = "",
     val vibrationEnabled: Boolean = true,
     val prayerLockEnabled: Boolean = true,
     val overlayQuote: String = ""

@@ -1,434 +1,1286 @@
-import os
+"""
+fix_all_features.py
+Run from the repo root:  python fix_all_features.py
+Then:  cd Sujood && ./gradlew assembleDebug
+"""
+import os, re
 
-SRC = os.path.join("Sujood", "app", "src", "main", "java", "com", "sujood", "app")
-RES = os.path.join("Sujood", "app", "src", "main", "res")
+SRC = os.path.join("Sujood","app","src","main","java","com","sujood","app")
+RES = os.path.join("Sujood","app","src","main","res")
 
-files = {}
+def write(relpath, content, base=SRC):
+    path = os.path.join(base, relpath.replace("/", os.sep))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(content)
+    print(f"  ✓  {relpath}")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 1. QiblaScreen.kt
-#    • Restored the working sensor logic from this commit (no remapCoordinateSystem)
-#    • Added a proper low-pass filter on the raw sensor arrays (kills jitter)
-#    • Added angle-domain LP filter on the heading (kills tiny flicker)
-#    • Shortest-path interpolation so the needle never spins the wrong way
-#    • Animation spec: NoBouncy + MediumLow stiffness (smooth, no wobble)
+# 1. FIX: Onboarding never saved hasCompletedOnboarding=true
+#    ReadyScreen now calls setOnboardingCompleted() before onEnter()
 # ─────────────────────────────────────────────────────────────────────────────
-files[('src', 'ui/screens/qibla/QiblaScreen.kt')] = \
-'''package com.sujood.app.ui.screens.qibla
+onboarding_path = os.path.join(
+    SRC, "ui","screens","onboarding","EmotionalOnboardingScreen.kt"
+)
+with open(onboarding_path, encoding="utf-8") as f:
+    ob = f.read()
 
+# Inject coroutineScope + setOnboardingCompleted into ReadyScreen's button onClick
+old_ready = '''private fun ReadyScreen(userPreferences: UserPreferences, onEnter: () -> Unit) {
+    val userName by userPreferences.userName.collectAsState(initial = "")'''
+new_ready = '''private fun ReadyScreen(userPreferences: UserPreferences, onEnter: () -> Unit) {
+    val userName by userPreferences.userName.collectAsState(initial = "")
+    val scope = rememberCoroutineScope()'''
+
+old_onclick = '''onClick = onEnter,'''
+new_onclick = '''onClick = {
+                    scope.launch { userPreferences.setOnboardingCompleted() }
+                    onEnter()
+                },'''
+
+ob = ob.replace(old_ready, new_ready)
+ob = ob.replace(old_onclick, new_onclick, 1)  # only first occurrence inside ReadyScreen
+
+# Make sure rememberCoroutineScope is imported
+if "rememberCoroutineScope" not in ob:
+    ob = ob.replace(
+        "import androidx.compose.runtime.getValue",
+        "import androidx.compose.runtime.getValue\nimport androidx.compose.runtime.rememberCoroutineScope"
+    )
+if "kotlinx.coroutines.launch" not in ob:
+    ob = ob.replace(
+        "import kotlinx.coroutines",
+        "import kotlinx.coroutines.launch\nimport kotlinx.coroutines"
+    )
+
+with open(onboarding_path, "w", encoding="utf-8", newline="\n") as f:
+    f.write(ob)
+print("  ✓  ui/screens/onboarding/EmotionalOnboardingScreen.kt  (onboarding fix)")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. HomeScreen — remove stray LocationOn icon on completed prayer row,
+#    replace emoji with sleek Canvas-drawn SVG-style icons per prayer
+# ─────────────────────────────────────────────────────────────────────────────
+write("ui/screens/home/HomeScreen.kt", r'''package com.sujood.app.ui.screens.home
+
+import android.Manifest
 import android.content.Context
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
-import android.location.LocationManager
-import androidx.compose.animation.core.Spring
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
+import com.sujood.app.data.api.RetrofitClient
 import com.sujood.app.data.local.datastore.UserPreferences
-import com.sujood.app.ui.components.AnimatedGradientBackground
-import com.sujood.app.ui.theme.LavenderGlow
-import com.sujood.app.ui.theme.SoftPurple
-import com.sujood.app.ui.theme.TextSecondary
-import com.sujood.app.ui.theme.WarmAmber
-import kotlin.math.atan2
+import com.sujood.app.data.repository.PrayerTimesRepository
+import com.sujood.app.domain.model.Prayer
+import com.sujood.app.domain.model.PrayerTime
+import com.sujood.app.domain.usecase.GetNextPrayerUseCase
+import com.sujood.app.domain.usecase.GetPrayerStreakUseCase
+import com.sujood.app.domain.usecase.LogPrayerCompletionUseCase
+import com.sujood.app.ui.components.DailyQuoteCard
+import com.sujood.app.ui.components.FrostedGlassCard
+import com.sujood.app.ui.theme.*
+import kotlinx.coroutines.delay
+import java.util.Calendar
 import kotlin.math.cos
-import kotlin.math.roundToInt
 import kotlin.math.sin
-import kotlinx.coroutines.flow.first
 
-// Low-pass filter strength: 0.10 = very smooth, 0.25 = balanced, 0.4 = responsive
-// 0.12 eliminates jitter while still tracking normal hand movement well
-private const val LP_ALPHA = 0.12f
+private val PrimaryBlue    = Color(0xFF1132D4)
+private val BackgroundDark = Color(0xFF101322)
+private val SurfaceCard    = Color(0xFF1A1F35)
+private val BorderSubtle   = Color(0x40FFFFFF)
 
-/** Apply a standard IIR low-pass filter to a sensor reading array. */
-private fun lowPassFilter(input: FloatArray, prev: FloatArray?): FloatArray {
-    if (prev == null) return input.clone()
-    return FloatArray(input.size) { i -> prev[i] + LP_ALPHA * (input[i] - prev[i]) }
+@OptIn(ExperimentalPermissionsApi::class)
+@Composable
+fun HomeScreen(
+    userPreferences: UserPreferences = UserPreferences(LocalContext.current),
+    repository: PrayerTimesRepository? = null
+) {
+    val context  = LocalContext.current
+    val database = (context.applicationContext as? com.sujood.app.SujoodApplication)?.database
+    val repo     = repository ?: remember {
+        database?.let { PrayerTimesRepository(RetrofitClient.aladhanApiService, it.prayerLogDao()) }
+    }
+
+    val viewModel: HomeViewModel = remember(userPreferences, repo) {
+        if (repo != null) {
+            HomeViewModel(
+                repository = repo,
+                userPreferences = userPreferences,
+                logPrayerCompletionUseCase = LogPrayerCompletionUseCase(repo),
+                getNextPrayerUseCase = GetNextPrayerUseCase(),
+                getPrayerStreakUseCase = GetPrayerStreakUseCase(repo)
+            )
+        } else throw IllegalStateException("Repository not available")
+    }
+
+    val uiState   by viewModel.uiState.collectAsState()
+    val listState = rememberLazyListState()
+    var visible   by remember { mutableStateOf(false) }
+    val locationPermission = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
+
+    LaunchedEffect(locationPermission.status.isGranted) {
+        if (locationPermission.status.isGranted) viewModel.initializeAndRefresh(context)
+    }
+    LaunchedEffect(locationPermission.status.isGranted) {
+        if (!locationPermission.status.isGranted) locationPermission.launchPermissionRequest()
+    }
+    LaunchedEffect(Unit) { delay(100); visible = true }
+
+    Box(modifier = Modifier.fillMaxSize().background(BackgroundDark)) {
+        Box(modifier = Modifier.fillMaxSize().background(
+            brush = Brush.radialGradient(
+                colors = listOf(PrimaryBlue.copy(alpha = 0.15f), Color.Transparent),
+                center = Offset(0f, 0f), radius = 600f
+            )
+        ))
+        Box(modifier = Modifier.fillMaxSize().background(
+            brush = Brush.radialGradient(
+                colors = listOf(Color(0xFF9333EA).copy(alpha = 0.10f), Color.Transparent),
+                center = Offset(Float.MAX_VALUE, Float.MAX_VALUE), radius = 800f
+            )
+        ))
+
+        when {
+            !locationPermission.status.isGranted ->
+                LocationPermissionCard(onRequestPermission = { locationPermission.launchPermissionRequest() })
+            uiState.isLoading || uiState.isLoadingLocation -> LoadingContent()
+            uiState.showCityInput -> CityInputContent(
+                error = uiState.error,
+                onSubmitCity = { city -> viewModel.fetchPrayerTimesByCity(context, city) },
+                onRetry = { viewModel.fetchPrayerTimes(context) }
+            )
+            uiState.error != null && uiState.prayerTimes.isEmpty() -> ErrorContent(
+                error = uiState.error!!,
+                onRetry = { viewModel.fetchPrayerTimes(context) },
+                onUseCity = { viewModel.showCityInput() },
+                context = context
+            )
+            else -> LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 100.dp)
+            ) {
+                item {
+                    HeroSection(
+                        userName = uiState.userName,
+                        nextPrayerInfo = uiState.nextPrayerInfo,
+                        prayerTimes = uiState.prayerTimes,
+                        completedPrayers = uiState.completedPrayersToday.toSet(),
+                        streakDays = uiState.streakDays,
+                        onCompleteClick = { viewModel.logPrayerCompletion(it) }
+                    )
+                }
+                item {
+                    AnimatedVisibility(visible = visible, enter = fadeIn(tween(400, delayMillis = 100))) {
+                        Text(
+                            text = "DAILY PRAYERS",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White.copy(alpha = 0.45f),
+                            letterSpacing = 2.sp,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
+                        )
+                    }
+                }
+                itemsIndexed(uiState.prayerTimes) { index, prayerTime ->
+                    val isCompleted = uiState.completedPrayersToday.contains(prayerTime.prayer)
+                    val np = uiState.nextPrayerInfo
+                    val isCurrent = np != null && np.isCurrentPrayer && np.prayer == prayerTime.prayer
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(400, delayMillis = 150 + index * 70)) +
+                                slideInVertically(tween(400, delayMillis = 150 + index * 70)) { 24 }
+                    ) {
+                        PrayerRow(
+                            prayerTime = prayerTime,
+                            isCompleted = isCompleted,
+                            isCurrent = isCurrent,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp),
+                            onClick = { viewModel.logPrayerCompletion(prayerTime.prayer) }
+                        )
+                    }
+                }
+                item {
+                    AnimatedVisibility(visible = visible, enter = fadeIn(tween(600, delayMillis = 600))) {
+                        DailyQuoteCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+                    }
+                }
+                item { Spacer(modifier = Modifier.height(32.dp)) }
+            }
+        }
+    }
 }
 
-/** Returns the shortest signed angular difference from -> to, in [-180, 180]. */
-private fun shortestDelta(from: Float, to: Float): Float =
-    ((to - from + 540f) % 360f) - 180f
+// ── Hero ──────────────────────────────────────────────────────────────────────
 
 @Composable
-fun QiblaScreen() {
-    val context = LocalContext.current
-    var userLatitude  by remember { mutableStateOf(0.0) }
-    var userLongitude by remember { mutableStateOf(0.0) }
-
-    // smoothedHeading is maintained in the sensor callback via LP filter
-    var smoothedHeading  by remember { mutableFloatStateOf(0f) }
-    var qiblaDirection   by remember { mutableFloatStateOf(277f) }
-    var isCalibrated     by remember { mutableStateOf(false) }
-    var isFacingQibla    by remember { mutableStateOf(false) }
-    var hasLocation      by remember { mutableStateOf(false) }
-
-    val userPreferences = remember { UserPreferences(context) }
-
-    // ── Location ──────────────────────────────────────────────────────────
-    LaunchedEffect(Unit) {
-        userPreferences.userSettings.first().let { settings ->
-            if (settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0) {
-                userLatitude   = settings.savedLatitude
-                userLongitude  = settings.savedLongitude
-                hasLocation    = true
-                qiblaDirection = calculateQiblaDirection(userLatitude, userLongitude, KAABA_LAT, KAABA_LON)
-            } else {
-                try {
-                    val lm  = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                    val loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                        ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                    if (loc != null) {
-                        userLatitude   = loc.latitude
-                        userLongitude  = loc.longitude
-                        hasLocation    = true
-                        qiblaDirection = calculateQiblaDirection(userLatitude, userLongitude, KAABA_LAT, KAABA_LON)
-                    }
-                } catch (_: SecurityException) {}
-            }
-        }
-    }
-
-    // ── Compass sensor ────────────────────────────────────────────────────
-    // Uses the ORIGINAL working approach from this commit:
-    //   getRotationMatrix(r, i, gravity, geomagnetic)
-    //   getOrientation(r, orientation)          ← no remapCoordinateSystem
-    // The remapCoordinateSystem call added in a previous session was wrong
-    // for portrait-flat phone use and caused the inaccuracy.
-    //
-    // Jitter is eliminated by low-pass filtering the raw sensor arrays
-    // AND by doing a second LP filter on the heading angle itself.
-    DisposableEffect(Unit) {
-        val sm   = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        val accel = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        val mag   = sm.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
-
-        var filteredGravity: FloatArray?     = null
-        var filteredGeomagnetic: FloatArray? = null
-
-        val listener = object : SensorEventListener {
-            override fun onSensorChanged(event: SensorEvent) {
-                when (event.sensor.type) {
-                    Sensor.TYPE_ACCELEROMETER  ->
-                        filteredGravity     = lowPassFilter(event.values.clone(), filteredGravity)
-                    Sensor.TYPE_MAGNETIC_FIELD ->
-                        filteredGeomagnetic = lowPassFilter(event.values.clone(), filteredGeomagnetic)
-                }
-
-                val g   = filteredGravity     ?: return
-                val geo = filteredGeomagnetic  ?: return
-
-                val r = FloatArray(9)
-                val i = FloatArray(9)
-                if (!SensorManager.getRotationMatrix(r, i, g, geo)) return
-
-                val orientation = FloatArray(3)
-                // ← original working call, NO remapCoordinateSystem
-                SensorManager.getOrientation(r, orientation)
-
-                var azimuth = Math.toDegrees(orientation[0].toDouble()).toFloat()
-
-                // Apply magnetic declination correction when we have a real location
-                if (hasLocation) {
-                    val gf = android.hardware.GeomagneticField(
-                        userLatitude.toFloat(), userLongitude.toFloat(),
-                        0f, System.currentTimeMillis()
-                    )
-                    azimuth += gf.declination
-                }
-
-                azimuth = (azimuth + 360f) % 360f
-
-                // Angle-domain LP filter — blend toward azimuth via shortest path
-                val delta = shortestDelta(smoothedHeading, azimuth)
-                smoothedHeading = (smoothedHeading + LP_ALPHA * delta + 360f) % 360f
-
-                isFacingQibla = calculateAngleDiff(smoothedHeading, qiblaDirection) < 5f
-                isCalibrated  = true
-            }
-
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-                isCalibrated = accuracy >= SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM
-            }
-        }
-
-        accel?.let { sm.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
-        mag?.let   { sm.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
-        onDispose  { sm.unregisterListener(listener) }
-    }
-
-    // Animate the already-smoothed heading — snappy but not bouncy
-    val animatedHeading by animateFloatAsState(
-        targetValue  = smoothedHeading,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness    = Spring.StiffnessMediumLow
-        ),
-        label = "heading"
-    )
-
-    val needleRotation = (qiblaDirection - animatedHeading + 360f) % 360f
-
-    // ── UI (unchanged from original commit) ───────────────────────────────
-    AnimatedGradientBackground(modifier = Modifier.fillMaxSize()) {
+private fun HeroSection(
+    userName: String,
+    nextPrayerInfo: GetNextPrayerUseCase.NextPrayerInfo?,
+    prayerTimes: List<PrayerTime>,
+    completedPrayers: Set<Prayer>,
+    streakDays: Int,
+    onCompleteClick: (Prayer) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 24.dp, shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
+                spotColor = PrimaryBlue.copy(alpha = 0.3f))
+            .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+            .background(brush = Brush.verticalGradient(colors = listOf(PrimaryBlue.copy(alpha = 0.18f), BackgroundDark)))
+            .border(width = 1.dp,
+                brush = Brush.verticalGradient(colors = listOf(PrimaryBlue.copy(alpha = 0.3f), Color.Transparent)),
+                shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+    ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier.fillMaxWidth().statusBarsPadding()
+                .padding(horizontal = 20.dp).padding(top = 16.dp, bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Qibla Direction",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Light,
-                color = Color.White
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = when {
-                    hasLocation -> "Based on your current location"
-                    else        -> "⚠️ No location found — open Home tab first"
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (hasLocation) TextSecondary else WarmAmber
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            // ── Compass widget ──
-            Box(modifier = Modifier.size(300.dp), contentAlignment = Alignment.Center) {
-
-                // Outer glow ring
-                Box(
-                    modifier = Modifier
-                        .size(300.dp)
-                        .scale(if (isFacingQibla) 1.05f else 1f)
-                        .clip(CircleShape)
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    if (isFacingQibla) WarmAmber.copy(alpha = 0.25f)
-                                    else SoftPurple.copy(alpha = 0.15f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                )
-
-                // Static compass ring + cardinal tick marks
-                Canvas(modifier = Modifier.size(280.dp)) {
-                    drawCircle(
-                        color  = Color.White.copy(alpha = 0.12f),
-                        radius = size.minDimension / 2,
-                        style  = Stroke(width = 2f)
-                    )
-                    drawCircle(
-                        color  = Color.White.copy(alpha = 0.04f),
-                        radius = size.minDimension / 2 - 20
-                    )
-                    listOf(0f, 90f, 180f, 270f).forEach { angle ->
-                        val rad    = Math.toRadians((angle - 90).toDouble())
-                        val outerR = size.minDimension / 2
-                        val innerR = outerR - 20
-                        drawLine(
-                            color       = Color.White.copy(alpha = 0.35f),
-                            start       = Offset(size.width / 2 + outerR * cos(rad).toFloat(),
-                                                 size.height / 2 + outerR * sin(rad).toFloat()),
-                            end         = Offset(size.width / 2 + innerR * cos(rad).toFloat(),
-                                                 size.height / 2 + innerR * sin(rad).toFloat()),
-                            strokeWidth = 3f
-                        )
+            Row(modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(modifier = Modifier.size(42.dp).clip(CircleShape)
+                        .background(PrimaryBlue.copy(alpha = 0.2f))
+                        .border(1.dp, PrimaryBlue.copy(alpha = 0.4f), CircleShape),
+                        contentAlignment = Alignment.Center) {
+                        Icon(imageVector = Icons.Default.Person, contentDescription = null,
+                            tint = PrimaryBlue, modifier = Modifier.size(24.dp))
+                    }
+                    Row {
+                        Text("Salam, ", style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(text = userName.ifEmpty { "Friend" },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold, color = PrimaryBlue)
                     }
                 }
-
-                // Rotating needle
-                Canvas(modifier = Modifier.size(200.dp).rotate(needleRotation)) {
-                    val cx = size.width / 2; val cy = size.height / 2
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                if (isFacingQibla) WarmAmber.copy(alpha = 0.3f) else LavenderGlow.copy(alpha = 0.2f),
-                                Color.Transparent
-                            ),
-                            center = Offset(cx, cy - 55f), radius = 30f
-                        ),
-                        radius = 30f, center = Offset(cx, cy - 55f)
-                    )
-                    val needlePath = Path().apply {
-                        moveTo(cx, cy - 80)
-                        lineTo(cx - 12, cy + 24)
-                        lineTo(cx, cy + 14)
-                        lineTo(cx + 12, cy + 24)
-                        close()
-                    }
-                    drawPath(
-                        path  = needlePath,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                if (isFacingQibla) WarmAmber else LavenderGlow,
-                                if (isFacingQibla) WarmAmber.copy(alpha = 0.4f) else SoftPurple.copy(alpha = 0.4f)
-                            )
-                        )
-                    )
-                    drawCircle(color = Color.White, radius = 8f, center = Offset(cx, cy))
-                    drawCircle(
-                        color  = if (isFacingQibla) WarmAmber else SoftPurple,
-                        radius = 4f, center = Offset(cx, cy)
-                    )
-                }
-
-                // Kaaba marker at top (static)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = 16.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isFacingQibla) WarmAmber.copy(alpha = 0.25f)
-                            else Color.White.copy(alpha = 0.08f)
-                        )
-                        .border(
-                            1.dp,
-                            if (isFacingQibla) WarmAmber.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.2f),
-                            CircleShape
-                        )
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(18.dp)
-                            .background(Color.Black, RoundedCornerShape(2.dp))
-                            .border(1.dp, Color(0xFFFFD700).copy(alpha = 0.5f), RoundedCornerShape(2.dp)),
-                        contentAlignment = Alignment.TopCenter
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(top = 4.dp)
-                                .background(Color(0xFFFFD700))
-                                .size(3.dp)
-                        )
-                    }
+                Box(modifier = Modifier.size(40.dp).clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
+                    Icon(imageVector = Icons.Default.Notifications, contentDescription = null,
+                        tint = Color.White, modifier = Modifier.size(22.dp))
                 }
             }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Text(
-                text  = if (isFacingQibla) "✓ Facing Qibla" else "${qiblaDirection.roundToInt()}° from North",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Medium,
-                color = if (isFacingQibla) WarmAmber else LavenderGlow
+            Spacer(modifier = Modifier.height(20.dp))
+            SunArcWidget(
+                modifier = Modifier.fillMaxWidth().height(120.dp),
+                prayerTimes = prayerTimes,
+                completedPrayers = completedPrayers,
+                nextPrayerInfo = nextPrayerInfo
             )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = if (isFacingQibla)
-                    "You are facing the Kaaba. May Allah accept your prayer."
-                else
-                    "Rotate your phone until the arrow points North, then face that direction",
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 32.dp)
-            )
-
-            if (!isCalibrated) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text  = "⚠️ Calibrate compass — move phone in figure-8 pattern",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = WarmAmber,
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            Spacer(modifier = Modifier.height(40.dp))
-            Text("Kaaba, Makkah Al-Mukarramah",
-                style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.8f))
             Spacer(modifier = Modifier.height(4.dp))
-            Text("21.4225° N, 39.8262° E",
-                style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-            Spacer(modifier = Modifier.height(80.dp))
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                listOf("FAJR","DHUHR","ASR","MAGHRIB","ISHA").forEach { name ->
+                    Text(text = name, fontSize = 8.sp, fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp, color = Color.White.copy(alpha = 0.35f))
+                }
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+            StreakAndDotsCard(
+                streakDays = streakDays,
+                prayerTimes = prayerTimes,
+                completedPrayers = completedPrayers
+            )
         }
     }
 }
 
-private fun calculateQiblaDirection(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
-    val dLon    = Math.toRadians(lon2 - lon1)
-    val lat1Rad = Math.toRadians(lat1)
-    val lat2Rad = Math.toRadians(lat2)
-    val y = sin(dLon) * cos(lat2Rad)
-    val x = cos(lat1Rad) * sin(lat2Rad) - sin(lat1Rad) * cos(lat2Rad) * cos(dLon)
-    return ((Math.toDegrees(atan2(y, x)).toFloat()) + 360f) % 360f
+// ── Sun arc ───────────────────────────────────────────────────────────────────
+
+@Composable
+private fun SunArcWidget(
+    modifier: Modifier = Modifier,
+    prayerTimes: List<PrayerTime>,
+    completedPrayers: Set<Prayer>,
+    nextPrayerInfo: GetNextPrayerUseCase.NextPrayerInfo?
+) {
+    val currentProgress = getDayProgress(System.currentTimeMillis())
+    val animatedProgress by animateFloatAsState(
+        targetValue = currentProgress,
+        animationSpec = tween(1500, easing = LinearOutSlowInEasing),
+        label = "sun"
+    )
+    val pillText = when {
+        nextPrayerInfo != null && nextPrayerInfo.isCurrentPrayer -> "Time for ${nextPrayerInfo.prayer.displayName}"
+        nextPrayerInfo != null -> "Next: ${nextPrayerInfo.prayer.displayName}"
+        else -> ""
+    }
+    Box(modifier = modifier, contentAlignment = Alignment.BottomCenter) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val cx = size.width / 2f
+            val cy = size.height + size.height * 0.05f
+            val r  = size.width * 0.44f
+            val arcPath = Path().apply {
+                addArc(oval = Rect(cx - r, cy - r, cx + r, cy + r),
+                    startAngleDegrees = 180f, sweepAngleDegrees = 180f)
+            }
+            drawPath(arcPath, color = Color.White.copy(alpha = 0.18f),
+                style = Stroke(width = 2f,
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f))))
+            val sunAngle = Math.toRadians(180.0 + animatedProgress * 180.0)
+            val sunX = cx + r * cos(sunAngle).toFloat()
+            val sunY = cy + r * sin(sunAngle).toFloat()
+            drawCircle(brush = Brush.radialGradient(listOf(Color(0xFFFBBF24).copy(alpha = 0.35f), Color.Transparent),
+                center = Offset(sunX, sunY), radius = 40f), radius = 40f, center = Offset(sunX, sunY))
+            drawCircle(color = Color(0xFFFBBF24), radius = 9f, center = Offset(sunX, sunY))
+        }
+        if (pillText.isNotEmpty()) {
+            Row(modifier = Modifier.clip(CircleShape)
+                .background(BackgroundDark.copy(alpha = 0.75f))
+                .border(1.dp, PrimaryBlue.copy(alpha = 0.3f), CircleShape)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(modifier = Modifier.size(20.dp).clip(CircleShape)
+                    .border(1.5.dp, PrimaryBlue.copy(alpha = 0.6f), CircleShape))
+                Text(text = pillText, style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold, color = Color.White)
+            }
+        }
+    }
 }
 
-private fun calculateAngleDiff(a1: Float, a2: Float): Float {
-    var d = kotlin.math.abs(a1 - a2)
-    if (d > 180f) d = 360f - d
-    return d
+// ── Streak & dots ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun StreakAndDotsCard(streakDays: Int, prayerTimes: List<PrayerTime>, completedPrayers: Set<Prayer>) {
+    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+        .background(brush = Brush.horizontalGradient(listOf(PrimaryBlue.copy(alpha = 0.22f), Color(0xFF9333EA).copy(alpha = 0.10f))))
+        .border(1.dp, PrimaryBlue.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
+        .padding(horizontal = 20.dp, vertical = 16.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text("TODAY'S PRAYERS", fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.5.sp, color = PrimaryBlue)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text("$streakDays", fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Days", fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                        color = Color.White.copy(alpha = 0.45f), modifier = Modifier.padding(bottom = 6.dp))
+                }
+            }
+            val prayers = prayerTimes.map { it.prayer }
+            val top = prayers.take(3); val bottom = prayers.drop(3)
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PrayerDotRow(prayers = top, completedPrayers = completedPrayers)
+                Row(modifier = Modifier.padding(end = 20.dp)) {
+                    PrayerDotRow(prayers = bottom, completedPrayers = completedPrayers)
+                }
+            }
+        }
+    }
 }
 
-private const val KAABA_LAT = 21.4225
-private const val KAABA_LON = 39.8262
-'''
+@Composable
+private fun PrayerDotRow(prayers: List<Prayer>, completedPrayers: Set<Prayer>) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        prayers.forEach { prayer ->
+            val done = completedPrayers.contains(prayer)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(modifier = Modifier.size(32.dp).clip(CircleShape)
+                    .background(if (done) PrimaryBlue else Color.White.copy(alpha = 0.07f))
+                    .border(2.dp, BackgroundDark.copy(alpha = 0.6f), CircleShape),
+                    contentAlignment = Alignment.Center) {
+                    Text(prayer.displayName.first().toString(), fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (done) Color.White else Color.White.copy(alpha = 0.3f))
+                }
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(prayer.displayName.uppercase(), fontSize = 7.sp, fontWeight = FontWeight.Bold,
+                    color = if (done) PrimaryBlue else Color.White.copy(alpha = 0.25f),
+                    letterSpacing = 0.5.sp)
+            }
+        }
+    }
+}
+
+// ── Prayer row ────────────────────────────────────────────────────────────────
+
+@Composable
+private fun PrayerRow(
+    prayerTime: PrayerTime,
+    isCompleted: Boolean,
+    isCurrent: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val bgColor     = if (isCurrent) PrimaryBlue.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.04f)
+    val borderColor = if (isCurrent) PrimaryBlue.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.07f)
+    val borderWidth = if (isCurrent) 2.dp else 1.dp
+
+    val (iconBg, iconTint) = when (prayerTime.prayer) {
+        Prayer.FAJR    -> Color(0xFF172554).copy(alpha = 0.7f) to Color(0xFF60A5FA)
+        Prayer.DHUHR   -> PrimaryBlue.copy(alpha = 0.9f)      to Color.White
+        Prayer.ASR     -> Color(0xFF431407).copy(alpha = 0.7f) to Color(0xFFFB923C)
+        Prayer.MAGHRIB -> Color(0xFF4C0519).copy(alpha = 0.7f) to Color(0xFFF87171)
+        Prayer.ISHA    -> Color(0xFF1E1B4B).copy(alpha = 0.7f) to Color(0xFFA5B4FC)
+    }
+
+    Row(
+        modifier = modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(bgColor)
+            .border(borderWidth, borderColor, RoundedCornerShape(20.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            // ── Sleek Canvas icon — no emoji, no stock Android icons ──
+            Box(modifier = Modifier.size(42.dp).clip(CircleShape).background(iconBg),
+                contentAlignment = Alignment.Center) {
+                Canvas(modifier = Modifier.size(22.dp)) {
+                    drawPrayerIcon(prayerTime.prayer, iconTint)
+                }
+            }
+            Column {
+                Text(text = prayerTime.prayer.displayName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isCurrent) PrimaryBlue else Color.White)
+                Text(text = prayerTime.time,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.4f))
+            }
+        }
+
+        // Right indicator — clean checkmark (no LocationOn icon)
+        when {
+            isCompleted -> Canvas(modifier = Modifier.size(26.dp)) {
+                // Green filled circle with white check
+                drawCircle(color = Color(0xFF22C55E), radius = size.minDimension / 2f)
+                val s = size.minDimension
+                val path = Path().apply {
+                    moveTo(s * 0.28f, s * 0.52f)
+                    lineTo(s * 0.44f, s * 0.68f)
+                    lineTo(s * 0.72f, s * 0.36f)
+                }
+                drawPath(path, Color.White, style = Stroke(width = 2.5f,
+                    cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+            isCurrent   -> Text("CURRENT", fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                color = PrimaryBlue, letterSpacing = 1.sp)
+            else        -> Box(modifier = Modifier.size(22.dp).clip(CircleShape)
+                .border(1.5.dp, Color.White.copy(alpha = 0.2f), CircleShape))
+        }
+    }
+}
+
+/** Canvas-drawn Iconly-style icons for each prayer. No emoji, no Android icons. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPrayerIcon(prayer: Prayer, tint: Color) {
+    val w = size.width; val h = size.height; val sw = w * 0.09f
+
+    when (prayer) {
+        Prayer.FAJR -> {
+            // Half-sun rising over horizon line
+            val cx = w / 2f; val cy = h * 0.58f; val r = w * 0.28f
+            drawArc(color = tint, startAngle = 180f, sweepAngle = 180f, useCenter = false,
+                topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
+                style = Stroke(width = sw, cap = StrokeCap.Round))
+            drawLine(tint, Offset(0f, cy), Offset(w, cy), strokeWidth = sw, cap = StrokeCap.Round)
+            // Rays above
+            listOf(-45f, 0f, 45f).forEach { angle ->
+                val rad = Math.toRadians(angle.toDouble() - 90)
+                drawLine(tint,
+                    Offset(cx + (r + w*0.05f)*cos(rad).toFloat(), cy + (r + h*0.05f)*sin(rad).toFloat()),
+                    Offset(cx + (r + w*0.20f)*cos(rad).toFloat(), cy + (r + h*0.20f)*sin(rad).toFloat()),
+                    strokeWidth = sw * 0.8f, cap = StrokeCap.Round)
+            }
+        }
+        Prayer.DHUHR -> {
+            // Full sun with rays (midday)
+            val cx = w / 2f; val cy = h / 2f; val r = w * 0.22f
+            drawCircle(color = tint, radius = r, center = Offset(cx, cy), style = Stroke(width = sw))
+            listOf(0f, 45f, 90f, 135f, 180f, 225f, 270f, 315f).forEach { angle ->
+                val rad = Math.toRadians(angle.toDouble())
+                drawLine(tint,
+                    Offset(cx + (r + w*0.06f)*cos(rad).toFloat(), cy + (r + h*0.06f)*sin(rad).toFloat()),
+                    Offset(cx + (r + w*0.18f)*cos(rad).toFloat(), cy + (r + h*0.18f)*sin(rad).toFloat()),
+                    strokeWidth = sw * 0.8f, cap = StrokeCap.Round)
+            }
+        }
+        Prayer.ASR -> {
+            // Sun low + shadow/partial cloud
+            val cx = w / 2f; val cy = h * 0.55f; val r = w * 0.22f
+            drawCircle(color = tint, radius = r, center = Offset(cx, cy), style = Stroke(width = sw))
+            listOf(0f, 60f, 120f, 240f, 300f).forEach { angle ->
+                val rad = Math.toRadians(angle.toDouble())
+                drawLine(tint,
+                    Offset(cx + (r + w*0.06f)*cos(rad).toFloat(), cy + (r + h*0.06f)*sin(rad).toFloat()),
+                    Offset(cx + (r + w*0.17f)*cos(rad).toFloat(), cy + (r + h*0.17f)*sin(rad).toFloat()),
+                    strokeWidth = sw * 0.8f, cap = StrokeCap.Round)
+            }
+            drawLine(tint, Offset(0f, h * 0.82f), Offset(w, h * 0.82f),
+                strokeWidth = sw * 0.7f, cap = StrokeCap.Round)
+        }
+        Prayer.MAGHRIB -> {
+            // Crescent moon
+            val cx = w * 0.52f; val cy = h / 2f; val r = w * 0.32f
+            drawArc(color = tint, startAngle = 0f, sweepAngle = 360f, useCenter = false,
+                topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
+                style = Stroke(width = sw))
+            // Cutout circle to make crescent
+            drawCircle(color = Color.Transparent.copy(0f), radius = r * 0.85f,
+                center = Offset(cx + r * 0.42f, cy - r * 0.10f))
+            // Re-draw cutout as background color
+            val cutoutPath = Path()
+            cutoutPath.addOval(Rect(cx + r*0.42f - r*0.85f, cy - r*0.10f - r*0.85f,
+                cx + r*0.42f + r*0.85f, cy - r*0.10f + r*0.85f))
+            drawPath(cutoutPath, Color(0xFF101322))  // match background
+        }
+        Prayer.ISHA -> {
+            // Moon + small star
+            val cx = w * 0.48f; val cy = h * 0.52f; val r = w * 0.28f
+            drawArc(color = tint, startAngle = 40f, sweepAngle = 280f, useCenter = false,
+                topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
+                style = Stroke(width = sw, cap = StrokeCap.Round))
+            // Small star top-right
+            drawCircle(color = tint, radius = w * 0.07f,
+                center = Offset(w * 0.80f, h * 0.22f))
+        }
+    }
+}
+
+private fun getDayProgress(timestamp: Long): Float {
+    val calendar = Calendar.getInstance().apply { timeInMillis = timestamp }
+    val h = calendar.get(Calendar.HOUR_OF_DAY)
+    val m = calendar.get(Calendar.MINUTE)
+    val s = calendar.get(Calendar.SECOND)
+    return ((h * 3600 + m * 60 + s).toFloat() / (24 * 60 * 60)).coerceIn(0f, 1f)
+}
+
+// ── Support screens ───────────────────────────────────────────────────────────
+
+@Composable
+private fun LocationPermissionCard(onRequestPermission: () -> Unit) {
+    Box(modifier = Modifier.fillMaxSize().background(BackgroundDark), contentAlignment = Alignment.Center) {
+        FrostedGlassCard(modifier = Modifier.fillMaxWidth().padding(24.dp), cornerRadius = 24.dp) {
+            Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(imageVector = Icons.Default.LocationOn, contentDescription = null,
+                    tint = PrimaryBlue, modifier = Modifier.size(52.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Location Permission Required", style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, color = Color.White)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Sujood needs your location to calculate accurate prayer times.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.5f), textAlign = TextAlign.Center)
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(onClick = onRequestPermission, modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                    shape = RoundedCornerShape(16.dp)) { Text("Grant Permission", fontWeight = FontWeight.Medium) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoadingContent() {
+    Box(modifier = Modifier.fillMaxSize().background(BackgroundDark), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(color = PrimaryBlue, modifier = Modifier.size(48.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Getting your location...", style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.5f))
+        }
+    }
+}
+
+@Composable
+private fun CityInputContent(error: String?, onSubmitCity: (String) -> Unit, onRetry: () -> Unit) {
+    val allCities = remember {
+        listOf(
+            "Dubai, UAE","Abu Dhabi, UAE","Sharjah, UAE","Ajman, UAE","Al Ain, UAE",
+            "Riyadh, Saudi Arabia","Jeddah, Saudi Arabia","Mecca, Saudi Arabia","Medina, Saudi Arabia",
+            "London, UK","Manchester, UK","Birmingham, UK","Glasgow, UK",
+            "New York, USA","Los Angeles, USA","Chicago, USA","Houston, USA",
+            "Toronto, Canada","Montreal, Canada","Vancouver, Canada",
+            "Cairo, Egypt","Alexandria, Egypt",
+            "Istanbul, Turkey","Ankara, Turkey",
+            "Kuala Lumpur, Malaysia","Jakarta, Indonesia",
+            "Karachi, Pakistan","Lahore, Pakistan","Islamabad, Pakistan",
+            "Dhaka, Bangladesh","Mumbai, India","Delhi, India",
+            "Paris, France","Berlin, Germany","Amsterdam, Netherlands",
+            "Lagos, Nigeria","Nairobi, Kenya","Casablanca, Morocco",
+            "Doha, Qatar","Kuwait City, Kuwait","Manama, Bahrain","Muscat, Oman",
+            "Amman, Jordan","Beirut, Lebanon","Baghdad, Iraq","Tehran, Iran",
+            "Sydney, Australia","Singapore, Singapore","Tokyo, Japan",
+            "Cape Town, South Africa","Johannesburg, South Africa"
+        ).sortedBy { it }
+    }
+    var query        by remember { mutableStateOf("") }
+    var selectedCity by remember { mutableStateOf("") }
+    val focusManager = LocalFocusManager.current
+    val filtered = remember(query) {
+        if (query.length < 2) emptyList()
+        else allCities.filter { it.contains(query, ignoreCase = true) }.take(6)
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(BackgroundDark), contentAlignment = Alignment.Center) {
+        Column(modifier = Modifier.fillMaxWidth().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(imageVector = Icons.Default.MyLocation, contentDescription = null,
+                tint = Color(0xFFFBBF24), modifier = Modifier.size(64.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("Where are you praying?", style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Light, color = Color.White, textAlign = TextAlign.Center)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Start typing your city to search", style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.4f), textAlign = TextAlign.Center)
+            Spacer(modifier = Modifier.height(28.dp))
+            OutlinedTextField(
+                value = query, onValueChange = { query = it; selectedCity = "" },
+                label = { Text("Search City") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PrimaryBlue, unfocusedBorderColor = BorderSubtle,
+                    focusedLabelColor = PrimaryBlue, cursorColor = PrimaryBlue,
+                    focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                    unfocusedLabelColor = Color.White.copy(alpha = 0.4f)
+                ),
+                shape = RoundedCornerShape(16.dp)
+            )
+            if (filtered.isNotEmpty() && selectedCity.isEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Column(modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp)).background(SurfaceCard)
+                    .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))) {
+                    filtered.forEachIndexed { idx, city ->
+                        Row(modifier = Modifier.fillMaxWidth()
+                            .clickable { selectedCity = city; query = city; focusManager.clearFocus() }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Icon(imageVector = Icons.Default.LocationOn, contentDescription = null,
+                                tint = PrimaryBlue, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(city, style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                        }
+                        if (idx < filtered.lastIndex)
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.06f), thickness = 0.5.dp)
+                    }
+                }
+            }
+            if (error != null && selectedCity.isEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(error, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(onClick = {
+                val city = selectedCity.ifEmpty { query }.trim()
+                if (city.isNotBlank()) { focusManager.clearFocus(); onSubmitCity(city) }
+            },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                enabled = selectedCity.isNotEmpty() || query.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                shape = RoundedCornerShape(26.dp)
+            ) {
+                Text(if (selectedCity.isNotEmpty()) "Use $selectedCity" else "Search",
+                    fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            TextButton(onClick = onRetry) {
+                Text("Detect my location automatically", color = PrimaryBlue)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ErrorContent(error: String, onRetry: () -> Unit, onUseCity: () -> Unit, context: Context) {
+    Box(modifier = Modifier.fillMaxSize().background(BackgroundDark), contentAlignment = Alignment.Center) {
+        FrostedGlassCard(modifier = Modifier.fillMaxWidth().padding(24.dp),
+            cornerRadius = 24.dp, borderColor = Color(0xFFFBBF24).copy(alpha = 0.4f)) {
+            Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(imageVector = Icons.Default.LocationOn, contentDescription = null,
+                    tint = Color(0xFFFBBF24), modifier = Modifier.size(48.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Couldn't access your location", style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, color = Color.White)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Please enable location permission and GPS, or enter your city manually.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.5f), textAlign = TextAlign.Center)
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = onUseCity, modifier = Modifier.weight(1f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryBlue),
+                        shape = RoundedCornerShape(12.dp)) { Text("Enter City", color = PrimaryBlue) }
+                    Button(onClick = onRetry, modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                        shape = RoundedCornerShape(12.dp)) { Text("Retry") }
+                }
+            }
+        }
+    }
+}
+''')
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2. SettingsScreen.kt — full redesign matching the mockup
-#    Design tokens: #101322 bg, glass cards, blue icon squares, dividers
-#    Sections: Profile, Location & Prayer, Notifications (with per-prayer
-#    sound grid), Audio & Haptics, App Preferences, Data Management, About
-#    Skipped: Biometric lock (as requested)
-#    All real toggles and dialogs remain wired to UserPreferences exactly
-#    as before so nothing breaks.
+# 3. DhikrScreen (Lock page)
+#    • Overlay preview now mirrors the real overlay XML exactly
+#    • "Test Now (Act Real)" button that fires PrayerLockOverlayService.start()
+#    • Specific Apps section: slide-down panel with 10 common apps + toggle per app
+#    • App-overlay mode wires lockedAppsPackageNames to UserPreferences
+#    • The service already reads lockMode and lockedApps correctly (no service change needed)
 # ─────────────────────────────────────────────────────────────────────────────
-files[('src', 'ui/screens/settings/SettingsScreen.kt')] = \
-'''package com.sujood.app.ui.screens.settings
+write("ui/screens/dhikr/DhikrScreen.kt", r'''package com.sujood.app.ui.screens.dhikr
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.sujood.app.data.local.datastore.UserPreferences
+import com.sujood.app.domain.model.LockMode
+import com.sujood.app.domain.model.UserSettings
+import com.sujood.app.service.PrayerLockOverlayService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+private val PrimaryBlue    = Color(0xFF1132D4)
+private val BackgroundDark = Color(0xFF101322)
+private val GlassStroke    = Color(0xFFFFFFFF).copy(alpha = 0.08f)
+private val TextMuted      = Color(0xFF94A3B8)
+private val TextDim        = Color(0xFF475569)
+private val CardBg         = Color(0xFF0D1020)
+
+// The apps shown in the Specific Apps picker
+private data class AppEntry(val name: String, val packageName: String, val emoji: String)
+
+private val COMMON_APPS = listOf(
+    AppEntry("TikTok",     "com.zhiliaoapp.musically",        "🎵"),
+    AppEntry("Instagram",  "com.instagram.android",           "📸"),
+    AppEntry("YouTube",    "com.google.android.youtube",      "▶️"),
+    AppEntry("Twitter / X","com.twitter.android",             "🐦"),
+    AppEntry("Snapchat",   "com.snapchat.android",            "👻"),
+    AppEntry("Facebook",   "com.facebook.katana",             "👍"),
+    AppEntry("WhatsApp",   "com.whatsapp",                    "💬"),
+    AppEntry("Reddit",     "com.reddit.frontpage",            "🤖"),
+    AppEntry("Netflix",    "com.netflix.mediaclient",         "🎬"),
+    AppEntry("Games",      "com.android.vending.games",       "🎮"),
+)
+
+@Composable
+fun DhikrScreen() {
+    val context         = LocalContext.current
+    val userPreferences = remember { UserPreferences(context) }
+    val settings        by userPreferences.userSettings.collectAsState(initial = UserSettings())
+
+    var showAppsPanel by remember { mutableStateOf(false) }
+    var infoDialog    by remember { mutableStateOf<Pair<String, String>?>(null) }
+
+    infoDialog?.let { (title, body) ->
+        InfoDialog(title = title, body = body, onDismiss = { infoDialog = null })
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(BackgroundDark)) {
+        Box(modifier = Modifier.fillMaxSize().background(
+            Brush.radialGradient(listOf(PrimaryBlue.copy(alpha = 0.15f), Color.Transparent),
+                center = Offset(0f, 0f), radius = 700f)))
+        Box(modifier = Modifier.fillMaxSize().background(
+            Brush.radialGradient(listOf(Color(0xFF8B5CF6).copy(alpha = 0.10f), Color.Transparent),
+                center = Offset(Float.MAX_VALUE, 0f), radius = 800f)))
+
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header
+            Row(modifier = Modifier.fillMaxWidth()
+                .background(BackgroundDark.copy(alpha = 0.85f))
+                .border(1.dp, PrimaryBlue.copy(alpha = 0.1f), RoundedCornerShape(0.dp))
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                Box(modifier = Modifier.size(40.dp).clip(CircleShape))
+                Text("Prayer Lock", style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold, color = Color.White)
+                Box(modifier = Modifier.size(40.dp))
+            }
+
+            LazyColumn(modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)) {
+
+                // ── Master Toggle ──────────────────────────────────────────
+                item {
+                    GlassCard {
+                        Row(modifier = Modifier.fillMaxWidth().padding(20.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                                Text("Enable Prayer Lock", style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold, color = Color.White)
+                                Spacer(Modifier.height(4.dp))
+                                Text("Restrict phone access for spiritual focus",
+                                    style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                            }
+                            Switch(checked = settings.prayerLockEnabled,
+                                onCheckedChange = { on ->
+                                    CoroutineScope(Dispatchers.IO).launch { userPreferences.savePrayerLockEnabled(on) }
+                                },
+                                colors = blueSwitchColors())
+                        }
+                    }
+                }
+
+                // ── Lock Type ──────────────────────────────────────────────
+                item {
+                    SectionHeader("Lock Type", onInfo = {
+                        infoDialog = "Lock Type" to "• Whole Phone: Full-screen overlay blocks all apps until you confirm prayer.\n\n• Specific Apps: Only locks selected distracting apps — rest of phone stays free."
+                    })
+                    Spacer(Modifier.height(10.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        LockTypeOption(icon = Icons.Default.Smartphone, title = "Whole Phone",
+                            subtitle = "Lock all non-essential features",
+                            isSelected = settings.lockMode == LockMode.WHOLE_PHONE,
+                            onClick = {
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    userPreferences.saveLockSettings(LockMode.WHOLE_PHONE, settings.lockTriggerMinutes, settings.lockDurationMinutes)
+                                }
+                                showAppsPanel = false
+                            })
+                        LockTypeOption(icon = Icons.Default.Apps, title = "Specific Apps",
+                            subtitle = "Select distracting applications",
+                            isSelected = settings.lockMode == LockMode.APP_OVERLAY,
+                            onClick = {
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    userPreferences.saveLockSettings(LockMode.APP_OVERLAY, settings.lockTriggerMinutes, settings.lockDurationMinutes)
+                                }
+                                showAppsPanel = true
+                            })
+
+                        // ── Specific Apps Slide Panel ──────────────────────
+                        AnimatedVisibility(
+                            visible = settings.lockMode == LockMode.APP_OVERLAY || showAppsPanel,
+                            enter = expandVertically(), exit = shrinkVertically()
+                        ) {
+                            GlassCard {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text("CHOOSE APPS TO BLOCK", fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp,
+                                        color = PrimaryBlue.copy(alpha = 0.85f))
+                                    Spacer(Modifier.height(4.dp))
+                                    Text("These apps will be blocked at prayer time. The rest of your phone stays accessible.",
+                                        fontSize = 12.sp, color = TextMuted)
+                                    Spacer(Modifier.height(12.dp))
+
+                                    val lockedSet = remember(settings.lockedAppsPackageNames) {
+                                        settings.lockedAppsPackageNames.split(",").filter { it.isNotBlank() }.toMutableSet()
+                                    }
+
+                                    COMMON_APPS.forEach { app ->
+                                        val isLocked = settings.lockedAppsPackageNames.contains(app.packageName)
+                                        Row(modifier = Modifier.fillMaxWidth()
+                                            .padding(vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Row(verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                Box(modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+                                                    .background(if (isLocked) PrimaryBlue.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f)),
+                                                    contentAlignment = Alignment.Center) {
+                                                    Text(app.emoji, fontSize = 18.sp)
+                                                }
+                                                Text(app.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White)
+                                            }
+                                            Switch(checked = isLocked,
+                                                onCheckedChange = { enabled ->
+                                                    val current = settings.lockedAppsPackageNames
+                                                        .split(",").filter { it.isNotBlank() }.toMutableSet()
+                                                    if (enabled) current.add(app.packageName)
+                                                    else current.remove(app.packageName)
+                                                    CoroutineScope(Dispatchers.IO).launch {
+                                                        userPreferences.saveLockBehavior(settings.minLockDurationMinutes, current.joinToString(","))
+                                                    }
+                                                },
+                                                colors = blueSwitchColors())
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── Trigger Timing ─────────────────────────────────────────
+                item {
+                    SectionHeader("Trigger Timing", onInfo = {
+                        infoDialog = "Trigger Timing" to "Controls when the lock activates relative to the prayer time.\n\n• Now: lock triggers at adhan.\n• +5m…+30m: lock triggers that many minutes after adhan."
+                    })
+                    Spacer(Modifier.height(10.dp))
+                    val opts = listOf(0 to "Now", 5 to "+5m", 10 to "+10m", 15 to "+15m", 30 to "+30m")
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            opts.take(4).forEach { (mins, label) ->
+                                OptionChip(label, settings.lockTriggerMinutes == mins, Modifier.weight(1f)) {
+                                    CoroutineScope(Dispatchers.IO).launch {
+                                        userPreferences.saveLockSettings(settings.lockMode, mins, settings.lockDurationMinutes)
+                                    }
+                                }
+                            }
+                        }
+                        OptionChip("+30m", settings.lockTriggerMinutes == 30, Modifier.fillMaxWidth()) {
+                            CoroutineScope(Dispatchers.IO).launch {
+                                userPreferences.saveLockSettings(settings.lockMode, 30, settings.lockDurationMinutes)
+                            }
+                        }
+                    }
+                }
+
+                // ── Minimum Duration ───────────────────────────────────────
+                item {
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween) {
+                        SectionHeader("Minimum Duration", onInfo = {
+                            infoDialog = "Minimum Duration" to "Minimum time the lock stays active before you can dismiss it.\n\n• 0 min: dismiss immediately.\n• 5 min: recommended — enough to complete a prayer."
+                        })
+                        Text(if (settings.minLockDurationMinutes == 0) "Off" else "${settings.minLockDurationMinutes} min",
+                            style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = PrimaryBlue)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    GlassCard {
+                        Row(modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            listOf(0 to "0 min", 2 to "2 min", 5 to "5 min").forEach { (mins, label) ->
+                                OptionChip(label, settings.minLockDurationMinutes == mins, Modifier.weight(1f)) {
+                                    CoroutineScope(Dispatchers.IO).launch {
+                                        userPreferences.saveLockBehavior(mins, settings.lockedAppsPackageNames)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── Overlay Customization ──────────────────────────────────
+                item {
+                    SectionHeader("Overlay Message", onInfo = {
+                        infoDialog = "Overlay Message" to "The quote shown on the lock screen. Leave blank to use the default Quranic verse."
+                    })
+                    Spacer(Modifier.height(10.dp))
+                    GlassCard {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("CUSTOM QUOTE", fontSize = 10.sp, fontWeight = FontWeight.Medium,
+                                letterSpacing = 1.5.sp, color = TextMuted)
+                            Spacer(Modifier.height(10.dp))
+                            var quoteText by remember { mutableStateOf(settings.overlayQuote) }
+                            LaunchedEffect(settings.overlayQuote) { quoteText = settings.overlayQuote }
+                            Box(modifier = Modifier.fillMaxWidth().height(100.dp)
+                                .clip(RoundedCornerShape(12.dp)).background(Color(0xFF1E2338))
+                                .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp)).padding(12.dp)) {
+                                BasicTextField(value = quoteText, onValueChange = { quoteText = it },
+                                    modifier = Modifier.fillMaxSize(),
+                                    textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+                                    cursorBrush = SolidColor(PrimaryBlue),
+                                    decorationBox = { inner ->
+                                        if (quoteText.isEmpty()) Text("e.g. 'Success is found in the prayer.'",
+                                            color = TextDim, fontSize = 14.sp)
+                                        inner()
+                                    })
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            Button(onClick = { CoroutineScope(Dispatchers.IO).launch { userPreferences.saveOverlayQuote(quoteText) } },
+                                modifier = Modifier.align(Alignment.End),
+                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue.copy(alpha = 0.75f)),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)) {
+                                Text("Save", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+
+                // ── Test Lock (Real Trigger) ────────────────────────────────
+                item {
+                    Spacer(Modifier.height(4.dp))
+                    // Description
+                    Text("This fires the actual overlay — just like at prayer time.",
+                        fontSize = 12.sp, color = TextMuted, textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
+                    Button(
+                        onClick = {
+                            // Start the real overlay service — same path as a real prayer alarm
+                            PrayerLockOverlayService.start(context, "Test Prayer", "الصلاة")
+                        },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 12.dp)
+                    ) {
+                        Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Text("Test Lock Now (Real)", fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall)
+                    }
+                }
+
+                item { Spacer(Modifier.height(40.dp)) }
+            }
+        }
+    }
+}
+
+// ── Reusable composables ──────────────────────────────────────────────────────
+
+@Composable
+private fun GlassCard(content: @Composable () -> Unit) {
+    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+        .background(CardBg.copy(alpha = 0.9f)).border(1.dp, GlassStroke, RoundedCornerShape(16.dp))) {
+        content()
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String, onInfo: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(title.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.5.sp, color = PrimaryBlue.copy(alpha = 0.85f))
+        Spacer(Modifier.width(6.dp))
+        Box(modifier = Modifier.size(18.dp).clip(CircleShape).clickable { onInfo() },
+            contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.Info, "Info", tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(14.dp))
+        }
+    }
+}
+
+@Composable
+private fun LockTypeOption(icon: ImageVector, title: String, subtitle: String, isSelected: Boolean, onClick: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+        .background(CardBg.copy(alpha = 0.9f))
+        .border(if (isSelected) 1.5.dp else 1.dp,
+            if (isSelected) PrimaryBlue.copy(alpha = 0.5f) else GlassStroke, RoundedCornerShape(16.dp))
+        .clickable { onClick() }.padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Box(modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))
+                .background(if (isSelected) PrimaryBlue.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.05f)),
+                contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = if (isSelected) PrimaryBlue else TextMuted, modifier = Modifier.size(22.dp))
+            }
+            Column {
+                Text(title, fontWeight = FontWeight.Bold, color = Color.White, style = MaterialTheme.typography.bodyLarge)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            }
+        }
+        Box(modifier = Modifier.size(22.dp).clip(CircleShape)
+            .border(2.dp, if (isSelected) PrimaryBlue else Color(0xFF475569), CircleShape)
+            .background(if (isSelected) PrimaryBlue else Color.Transparent),
+            contentAlignment = Alignment.Center) {
+            if (isSelected) Box(Modifier.size(8.dp).clip(CircleShape).background(Color.White))
+        }
+    }
+}
+
+@Composable
+private fun OptionChip(label: String, isSelected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(modifier = modifier.clip(RoundedCornerShape(14.dp))
+        .background(if (isSelected) PrimaryBlue.copy(alpha = 0.22f) else CardBg.copy(alpha = 0.9f))
+        .border(if (isSelected) 1.5.dp else 1.dp,
+            if (isSelected) PrimaryBlue.copy(alpha = 0.55f) else GlassStroke, RoundedCornerShape(14.dp))
+        .clickable { onClick() }.padding(vertical = 14.dp),
+        contentAlignment = Alignment.Center) {
+        Text(label, fontSize = 13.sp,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (isSelected) Color.White else TextMuted, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+private fun blueSwitchColors() = SwitchDefaults.colors(
+    checkedThumbColor = Color.White, checkedTrackColor = PrimaryBlue,
+    uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF334155)
+)
+
+@Composable
+private fun InfoDialog(title: String, body: String, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp)
+            .clip(RoundedCornerShape(24.dp)).background(Color(0xFF131726))
+            .border(1.dp, PrimaryBlue.copy(alpha = 0.25f), RoundedCornerShape(24.dp)).padding(24.dp)) {
+            Column {
+                Row(modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(Modifier.size(32.dp).clip(CircleShape).background(PrimaryBlue.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Info, null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
+                        }
+                        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                    Box(Modifier.size(28.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.06f))
+                        .clickable { onDismiss() }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Close, "Close", tint = TextMuted, modifier = Modifier.size(14.dp))
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.07f))
+                Spacer(Modifier.height(16.dp))
+                Text(body, style = MaterialTheme.typography.bodyMedium, color = TextMuted, lineHeight = 22.sp)
+                Spacer(Modifier.height(24.dp))
+                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().height(46.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                    shape = RoundedCornerShape(12.dp)) { Text("Got it", fontWeight = FontWeight.SemiBold) }
+            }
+        }
+    }
+}
+''')
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. QiblaScreen — change "Kaaba, Makkah Al-Mukarramah" to user's city
+# ─────────────────────────────────────────────────────────────────────────────
+qibla_path = os.path.join(SRC, "ui","screens","qibla","QiblaScreen.kt")
+with open(qibla_path, encoding="utf-8") as f:
+    q = f.read()
+
+q = q.replace(
+    'Text("Kaaba, Makkah Al-Mukarramah",',
+    'val cityLabel = if (userLatitude != 0.0 && userLongitude != 0.0 && hasLocation)\n'
+    '    remember(userLatitude, userLongitude) {\n'
+    '        userPreferences.let { null } // resolved below\n'
+    '    }.let { getCityLabel(context, userLatitude, userLongitude) }\n'
+    'else "Kaaba, Makkah Al-Mukarramah"\n'
+    'Text(cityLabel,',
+    1
+)
+
+# Simpler, cleaner approach — just patch the two Text lines at the bottom
+q = q.replace(
+    'Text("Kaaba, Makkah Al-Mukarramah",\n                style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.8f))',
+    'Text(\n                    text = if (hasLocation && userLatitude != 0.0)\n                        getCityLabel(context, userLatitude, userLongitude)\n                    else "Kaaba, Makkah Al-Mukarramah",\n                    style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.8f))'
+)
+q = q.replace(
+    'Text(text = "21.4225° N, 39.8262° E",',
+    'Text(\n            text = if (hasLocation && userLatitude != 0.0)\n                "%.4f° N, %.4f° E".format(userLatitude, userLongitude)\n            else "21.4225° N, 39.8262° E",'
+)
+
+# Add helper function and context import before the calculateQiblaDirection function
+helper = '''
+private fun getCityLabel(context: android.content.Context, lat: Double, lon: Double): String {
+    return try {
+        val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
+        @Suppress("DEPRECATION")
+        val addresses = geocoder.getFromLocation(lat, lon, 1)
+        val city = addresses?.firstOrNull()?.let { addr ->
+            addr.locality ?: addr.subAdminArea ?: addr.adminArea ?: addr.countryName
+        }
+        city ?: "Your Location"
+    } catch (e: Exception) {
+        "Your Location"
+    }
+}
+
+'''
+q = q.replace(
+    "private fun calculateQiblaDirection",
+    helper + "private fun calculateQiblaDirection"
+)
+
+# Make sure Context import is present
+if "import androidx.compose.ui.platform.LocalContext" not in q:
+    q = q.replace("import com.sujood.app.data.local.datastore.UserPreferences",
+                  "import androidx.compose.ui.platform.LocalContext\nimport com.sujood.app.data.local.datastore.UserPreferences")
+
+with open(qibla_path, "w", encoding="utf-8", newline="\n") as f:
+    f.write(q)
+print("  ✓  ui/screens/qibla/QiblaScreen.kt  (city label fix)")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. SettingsScreen — GPS triggers immediate scan, clear cache works,
+#    adhan sound picker added, offline caching in UserPreferences done via
+#    saveLocationSettings (already persists lat/lon) — no change needed there.
+#    City search now uses the same curated list as HomeScreen (no raw free-text).
+# ─────────────────────────────────────────────────────────────────────────────
+write("ui/screens/settings/SettingsScreen.kt", r'''package com.sujood.app.ui.screens.settings
+
+import android.Manifest
+import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -463,15 +1315,13 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.SupportAgent
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Vibration
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
@@ -492,6 +1342,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -508,20 +1359,44 @@ import com.sujood.app.notifications.PrayerAlarmScheduler
 import com.sujood.app.ui.theme.GlassBorder
 import com.sujood.app.ui.theme.LavenderGlow
 import com.sujood.app.ui.theme.MidnightBlue
-import com.sujood.app.ui.theme.SoftPurple
-import com.sujood.app.ui.theme.TextSecondary
 import com.sujood.app.ui.theme.WarmAmber
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// ── Design tokens (matching mockup) ──────────────────────────────────────────
 private val BgDark      = Color(0xFF101322)
 private val PrimaryBlue = Color(0xFF1132D4)
 private val GlassFill   = Color(0xFF1132D4).copy(alpha = 0.05f)
 private val GlassDiv    = Color(0xFFFFFFFF).copy(alpha = 0.05f)
 private val GlassBrd    = Color(0xFFFFFFFF).copy(alpha = 0.10f)
-private val SlateMuted  = Color(0xFF64748B)  // slate-500 for section labels
-private val SlateText   = Color(0xFF94A3B8)  // slate-400 for subtitles
+private val SlateMuted  = Color(0xFF64748B)
+private val SlateText   = Color(0xFF94A3B8)
+
+// Curated city list (same as HomeScreen — so search works properly)
+private val CITY_LIST = listOf(
+    "Dubai, UAE","Abu Dhabi, UAE","Sharjah, UAE","Ajman, UAE","Al Ain, UAE",
+    "Riyadh, Saudi Arabia","Jeddah, Saudi Arabia","Mecca, Saudi Arabia","Medina, Saudi Arabia",
+    "London, UK","Manchester, UK","Birmingham, UK","Glasgow, UK",
+    "New York, USA","Los Angeles, USA","Chicago, USA","Houston, USA",
+    "Toronto, Canada","Montreal, Canada","Vancouver, Canada",
+    "Cairo, Egypt","Alexandria, Egypt","Istanbul, Turkey","Ankara, Turkey",
+    "Kuala Lumpur, Malaysia","Jakarta, Indonesia",
+    "Karachi, Pakistan","Lahore, Pakistan","Islamabad, Pakistan",
+    "Dhaka, Bangladesh","Mumbai, India","Delhi, India",
+    "Paris, France","Berlin, Germany","Amsterdam, Netherlands",
+    "Lagos, Nigeria","Nairobi, Kenya","Casablanca, Morocco",
+    "Doha, Qatar","Kuwait City, Kuwait","Manama, Bahrain","Muscat, Oman",
+    "Amman, Jordan","Beirut, Lebanon","Baghdad, Iraq","Tehran, Iran",
+    "Sydney, Australia","Singapore, Singapore","Tokyo, Japan",
+    "Cape Town, South Africa","Johannesburg, South Africa"
+).sortedBy { it }
+
+private val ADHAN_OPTIONS = listOf(
+    "Mishary Al-Afasy" to "https://cdn.islamic.network/quran/audio/128/ar.alafasy/1.mp3",
+    "Abdul Basit"       to "https://cdn.islamic.network/quran/audio/128/ar.abdulbasitmurattal/1.mp3",
+    "Maher Al Mueaqly"  to "https://cdn.islamic.network/quran/audio/128/ar.mahermuaiqly/1.mp3",
+    "Saad Al Ghamdi"    to "https://cdn.islamic.network/quran/audio/128/ar.saoodashurym/1.mp3",
+    "Phone Ringtone"    to "ringtone"
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -536,44 +1411,40 @@ fun SettingsScreen(
     var showNameDialog         by remember { mutableStateOf(false) }
     var showMethodDialog       by remember { mutableStateOf(false) }
     var showMadhabDialog       by remember { mutableStateOf(false) }
-    var showGracePeriodDialog  by remember { mutableStateOf(false) }
     var showCityDialog         by remember { mutableStateOf(false) }
     var showLockTriggerDialog  by remember { mutableStateOf(false) }
     var showLockDurationDialog by remember { mutableStateOf(false) }
+    var showAdhanDialog        by remember { mutableStateOf(false) }
+    var cacheCleared           by remember { mutableStateOf(false) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BgDark)
-            .background(
-                Brush.radialGradient(
-                    listOf(PrimaryBlue.copy(alpha = 0.15f), Color.Transparent),
-                    center = androidx.compose.ui.geometry.Offset(0f, 0f), radius = 1000f
-                )
-            )
-    ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 120.dp)
-        ) {
-            // ── Header ──────────────────────────────────────────────────────
+    // Location permission launcher — used by "Use GPS" button in dialog
+    val locationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            scope.launch {
+                // Trigger immediate GPS scan via saving useGps=true then letting HomeViewModel pick it up
+                userPreferences.saveLocationSettings(true, "", "", 0.0, 0.0)
+            }
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(BgDark)
+        .background(Brush.radialGradient(listOf(PrimaryBlue.copy(alpha = 0.15f), Color.Transparent),
+            center = androidx.compose.ui.geometry.Offset(0f, 0f), radius = 1000f))) {
+
+        LazyColumn(modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 120.dp)) {
+
+            // Header
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .padding(top = 16.dp, bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.07f))
-                            .border(1.dp, GlassBrd, CircleShape)
-                            .clickable { onNavigateBack() },
-                        contentAlignment = Alignment.Center
-                    ) {
+                Row(modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 24.dp).padding(top = 16.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(40.dp).clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.07f))
+                        .border(1.dp, GlassBrd, CircleShape).clickable { onNavigateBack() },
+                        contentAlignment = Alignment.Center) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back",
                             tint = Color.White, modifier = Modifier.size(20.dp))
                     }
@@ -584,68 +1455,38 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Profile card ─────────────────────────────────────────────
+            // Profile card
             item {
-                GlassCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .padding(top = 16.dp)
-                        .clickable { showNameDialog = true }
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
+                GlassCard(modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 24.dp).padding(top = 16.dp).clickable { showNameDialog = true }) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Avatar
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Box(modifier = Modifier.size(72.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(72.dp)
-                                    .clip(CircleShape)
-                                    .background(PrimaryBlue.copy(alpha = 0.20f))
-                                    .border(2.dp, PrimaryBlue.copy(alpha = 0.50f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = settings.name.firstOrNull()?.uppercase() ?: "S",
-                                    fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White
-                                )
+                            Box(modifier = Modifier.size(72.dp).clip(CircleShape)
+                                .background(PrimaryBlue.copy(alpha = 0.20f))
+                                .border(2.dp, PrimaryBlue.copy(alpha = 0.50f), CircleShape),
+                                contentAlignment = Alignment.Center) {
+                                Text(settings.name.firstOrNull()?.uppercase() ?: "S",
+                                    fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             }
-                            // Edit badge
-                            Box(
-                                modifier = Modifier
-                                    .size(22.dp)
-                                    .align(Alignment.BottomEnd)
-                                    .clip(CircleShape)
-                                    .background(PrimaryBlue)
-                                    .border(2.dp, BgDark, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Person, null,
-                                    tint = Color.White, modifier = Modifier.size(12.dp))
+                            Box(modifier = Modifier.size(22.dp).align(Alignment.BottomEnd)
+                                .clip(CircleShape).background(PrimaryBlue).border(2.dp, BgDark, CircleShape),
+                                contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.size(12.dp))
                             }
                         }
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = settings.name.ifEmpty { "Tap to set name" },
-                                fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White
-                            )
+                            Text(settings.name.ifEmpty { "Tap to set name" },
+                                fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             Spacer(modifier = Modifier.height(2.dp))
                             Text("sujood@app.com", fontSize = 13.sp, color = SlateText)
                             Spacer(modifier = Modifier.height(8.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(CircleShape)
-                                    .background(PrimaryBlue.copy(alpha = 0.20f))
-                                    .padding(horizontal = 10.dp, vertical = 3.dp)
-                            ) {
+                            Box(modifier = Modifier.clip(CircleShape)
+                                .background(PrimaryBlue.copy(alpha = 0.20f))
+                                .padding(horizontal = 10.dp, vertical = 3.dp)) {
                                 Text("PREMIUM MEMBER", fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold, color = PrimaryBlue,
-                                    letterSpacing = 1.sp)
+                                    fontWeight = FontWeight.Bold, color = PrimaryBlue, letterSpacing = 1.sp)
                             }
                         }
                         Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(20.dp))
@@ -653,246 +1494,174 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Location & Prayer ────────────────────────────────────────
+            // Location & Prayer
             item { SectionLabel("Location & Prayer") }
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                    SettingsRow(
-                        icon = Icons.Default.LocationOn, title = "Prayer Location",
+                    SettingsRow(icon = Icons.Default.LocationOn, title = "Prayer Location",
                         subtitle = when {
                             settings.savedCity.isNotEmpty() -> settings.savedCity
                             settings.savedLatitude != 0.0  -> "GPS Active"
                             else -> "Not set"
                         },
                         trailing = {
-                            if (settings.useGpsLocation || settings.savedLatitude != 0.0) {
+                            if (settings.useGpsLocation || settings.savedLatitude != 0.0)
                                 Text("GPS Active", fontSize = 12.sp, color = PrimaryBlue, fontWeight = FontWeight.Medium)
-                            } else {
+                            else
                                 Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(18.dp))
-                            }
                         },
-                        onClick = { showCityDialog = true }
-                    )
+                        onClick = { showCityDialog = true })
                     GlassDivider()
-                    SettingsRow(
-                        icon = Icons.Default.Calculate, title = "Calculation Method",
+                    SettingsRow(icon = Icons.Default.Calculate, title = "Calculation Method",
                         subtitle = settings.calculationMethod.displayName,
                         trailing = { Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) },
-                        onClick = { showMethodDialog = true }
-                    )
+                        onClick = { showMethodDialog = true })
                     GlassDivider()
-                    SettingsRow(
-                        icon = Icons.Default.Mosque, title = "Madhab",
+                    SettingsRow(icon = Icons.Default.Mosque, title = "Madhab",
                         subtitle = settings.madhab.displayName + " / Standard",
                         trailing = { Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) },
-                        onClick = { showMadhabDialog = true }
-                    )
+                        onClick = { showMadhabDialog = true })
                 }
             }
 
-            // ── Notifications ────────────────────────────────────────────
+            // Notifications
             item { SectionLabel("Notifications") }
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                    // Master toggle — Daily Prayer Alerts (uses Fajr as proxy for "all on")
-                    val allOn = settings.fajrNotificationEnabled &&
-                                settings.dhuhrNotificationEnabled &&
-                                settings.asrNotificationEnabled &&
-                                settings.maghribNotificationEnabled &&
+                    val allOn = settings.fajrNotificationEnabled && settings.dhuhrNotificationEnabled &&
+                                settings.asrNotificationEnabled && settings.maghribNotificationEnabled &&
                                 settings.ishaNotificationEnabled
-                    SettingsRow(
-                        icon = Icons.Default.NotificationsActive,
-                        title = "Daily Prayer Alerts",
+                    SettingsRow(icon = Icons.Default.NotificationsActive, title = "Daily Prayer Alerts",
                         trailing = {
-                            Switch(
-                                checked = allOn,
-                                onCheckedChange = { enabled ->
+                            Switch(checked = allOn, onCheckedChange = { enabled ->
+                                scope.launch {
+                                    Prayer.entries.forEach { userPreferences.saveNotificationEnabled(it.name, enabled) }
+                                    rescheduleAlarms(context, userPreferences)
+                                }
+                            }, colors = blueSwitchColors())
+                        })
+                    GlassDivider()
+                    // Per-prayer grid
+                    Row(modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(Prayer.FAJR to settings.fajrNotificationEnabled,
+                               Prayer.DHUHR to settings.dhuhrNotificationEnabled,
+                               Prayer.ASR to settings.asrNotificationEnabled,
+                               Prayer.MAGHRIB to settings.maghribNotificationEnabled,
+                               Prayer.ISHA to settings.ishaNotificationEnabled
+                        ).forEach { (prayer, enabled) ->
+                            Column(modifier = Modifier.weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (enabled) PrimaryBlue.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.04f))
+                                .border(1.dp, if (enabled) PrimaryBlue.copy(alpha = 0.40f) else Color.Transparent, RoundedCornerShape(10.dp))
+                                .clickable {
                                     scope.launch {
-                                        Prayer.entries.forEach { p ->
-                                            userPreferences.saveNotificationEnabled(p.name, enabled)
-                                        }
+                                        userPreferences.saveNotificationEnabled(prayer.name, !enabled)
                                         rescheduleAlarms(context, userPreferences)
                                     }
-                                },
-                                colors = blueSwitchColors()
-                            )
-                        }
-                    )
-                    GlassDivider()
-
-                    // Per-prayer sound grid
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val prayers = listOf(
-                            Prayer.FAJR    to settings.fajrNotificationEnabled,
-                            Prayer.DHUHR   to settings.dhuhrNotificationEnabled,
-                            Prayer.ASR     to settings.asrNotificationEnabled,
-                            Prayer.MAGHRIB to settings.maghribNotificationEnabled,
-                            Prayer.ISHA    to settings.ishaNotificationEnabled
-                        )
-                        prayers.forEach { (prayer, enabled) ->
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(
-                                        if (enabled) PrimaryBlue.copy(alpha = 0.20f)
-                                        else Color.White.copy(alpha = 0.04f)
-                                    )
-                                    .border(
-                                        1.dp,
-                                        if (enabled) PrimaryBlue.copy(alpha = 0.40f) else Color.Transparent,
-                                        RoundedCornerShape(10.dp)
-                                    )
-                                    .clickable {
-                                        scope.launch {
-                                            userPreferences.saveNotificationEnabled(prayer.name, !enabled)
-                                            rescheduleAlarms(context, userPreferences)
-                                        }
-                                    }
-                                    .padding(vertical = 10.dp),
+                                }.padding(vertical = 10.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(prayer.displayName, fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold, color = Color.White)
-                                Icon(
-                                    imageVector = if (enabled) Icons.Default.VolumeUp else Icons.Default.Vibration,
-                                    contentDescription = null,
-                                    tint = if (enabled) PrimaryBlue else SlateText,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(prayer.displayName, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                Icon(if (enabled) Icons.Default.VolumeUp else Icons.Default.Vibration,
+                                    null, tint = if (enabled) PrimaryBlue else SlateText, modifier = Modifier.size(20.dp))
                             }
                         }
                     }
                     GlassDivider()
-
-                    // Adhan sound row
-                    SettingsRow(
-                        icon = Icons.Default.MusicNote,
-                        title = "Adhan Sound",
-                        subtitle = "Mishary Al-Afasy",
-                        trailing = { Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) }
-                    )
+                    SettingsRow(icon = Icons.Default.MusicNote, title = "Adhan Sound",
+                        subtitle = settings.adhanSoundName.ifEmpty { "Mishary Al-Afasy" },
+                        trailing = { Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) },
+                        onClick = { showAdhanDialog = true })
                     GlassDivider()
-
-                    // Vibration toggle
-                    SettingsRow(
-                        icon = Icons.Default.Vibration,
-                        title = "Vibration",
+                    SettingsRow(icon = Icons.Default.Vibration, title = "Vibration",
                         trailing = {
-                            Switch(
-                                checked = settings.vibrationEnabled,
-                                onCheckedChange = { enabled ->
-                                    scope.launch { userPreferences.saveAudioSettings(settings.adhanEnabled, enabled) }
-                                },
-                                colors = blueSwitchColors()
-                            )
-                        }
-                    )
+                            Switch(checked = settings.vibrationEnabled, onCheckedChange = { enabled ->
+                                scope.launch { userPreferences.saveAudioSettings(settings.adhanEnabled, enabled) }
+                            }, colors = blueSwitchColors())
+                        })
                 }
             }
 
-            // ── Audio & Haptics ──────────────────────────────────────────
+            // Audio & Haptics
             item { SectionLabel("Audio & Haptics") }
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                    SettingsRow(
-                        icon = Icons.Default.VolumeUp,
-                        title = "Sound Effects",
+                    SettingsRow(icon = Icons.Default.VolumeUp, title = "Sound Effects",
                         trailing = {
-                            Switch(
-                                checked = settings.adhanEnabled,
-                                onCheckedChange = { enabled ->
-                                    scope.launch { userPreferences.saveAudioSettings(enabled, settings.vibrationEnabled) }
-                                },
-                                colors = blueSwitchColors()
-                            )
-                        }
-                    )
+                            Switch(checked = settings.adhanEnabled, onCheckedChange = { enabled ->
+                                scope.launch { userPreferences.saveAudioSettings(enabled, settings.vibrationEnabled) }
+                            }, colors = blueSwitchColors())
+                        })
                 }
             }
 
-            // ── App Preferences ──────────────────────────────────────────
+            // App Preferences
             item { SectionLabel("App Preferences") }
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                    SettingsRow(
-                        icon = Icons.Default.Language,
-                        title = "Language",
-                        trailing = { Text("English (US)", fontSize = 12.sp, color = SlateText) }
-                    )
+                    SettingsRow(icon = Icons.Default.Language, title = "Language",
+                        trailing = { Text("English (US)", fontSize = 12.sp, color = SlateText) })
                     GlassDivider()
-                    SettingsRow(
-                        icon = Icons.Default.FileUpload,
-                        title = "Data Backup",
-                        trailing = { Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) }
-                    )
+                    SettingsRow(icon = Icons.Default.FileUpload, title = "Data Backup",
+                        trailing = { Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) })
                 }
             }
 
-            // ── Data Management ──────────────────────────────────────────
+            // Data Management
             item { SectionLabel("Data Management") }
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                    SettingsRow(
-                        icon = Icons.Default.FileUpload,
-                        title = "Export Prayer History",
-                        trailing = { Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) }
-                    )
+                    SettingsRow(icon = Icons.Default.FileUpload, title = "Export Prayer History",
+                        trailing = { Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) })
                     GlassDivider()
-                    SettingsRow(
-                        icon = Icons.Default.DeleteSweep,
-                        title = "Clear Cache",
-                        trailing = { Text("42 MB", fontSize = 12.sp, color = SlateMuted) }
-                    )
+                    SettingsRow(icon = Icons.Default.DeleteSweep, title = "Clear Cache",
+                        trailing = {
+                            if (cacheCleared)
+                                Text("Cleared!", fontSize = 12.sp, color = Color(0xFF22C55E), fontWeight = FontWeight.SemiBold)
+                            else
+                                Text("42 MB", fontSize = 12.sp, color = SlateMuted)
+                        },
+                        onClick = {
+                            // Clear app cache directory
+                            scope.launch {
+                                try {
+                                    context.cacheDir.deleteRecursively()
+                                    context.externalCacheDir?.deleteRecursively()
+                                } catch (_: Exception) {}
+                                cacheCleared = true
+                            }
+                        })
                 }
             }
 
-            // ── About ────────────────────────────────────────────────────
+            // About
             item { SectionLabel("About") }
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                    SettingsRow(
-                        icon = Icons.Default.Info,
-                        title = "App Version",
-                        trailing = { Text("v1.0.0", fontSize = 12.sp, color = SlateText) }
-                    )
+                    SettingsRow(icon = Icons.Default.Info, title = "App Version",
+                        trailing = { Text("v1.0.0", fontSize = 12.sp, color = SlateText) })
                     GlassDivider()
-                    SettingsRow(
-                        icon = Icons.Default.SupportAgent,
-                        title = "Support & Feedback",
+                    SettingsRow(icon = Icons.Default.SupportAgent, title = "Support & Feedback",
                         trailing = { Icon(Icons.Default.OpenInNew, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) },
                         onClick = {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("mailto:support@sujood.app"))
                             context.startActivity(intent)
-                        }
-                    )
+                        })
                 }
             }
 
-            // ── Sign Out button ──────────────────────────────────────────
+            // Sign Out
             item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 24.dp, bottom = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.20f), CircleShape)
-                            .background(Color(0xFFEF4444).copy(alpha = 0.05f))
-                            .padding(horizontal = 24.dp, vertical = 10.dp)
-                            .clickable { /* sign-out action — wired when auth is added */ }
-                    ) {
-                        Text("Sign Out", fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold, color = Color(0xFFEF4444).copy(alpha = 0.80f))
+                Box(modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp),
+                    contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.clip(CircleShape)
+                        .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.20f), CircleShape)
+                        .background(Color(0xFFEF4444).copy(alpha = 0.05f))
+                        .padding(horizontal = 24.dp, vertical = 10.dp).clickable {}) {
+                        Text("Sign Out", fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFFEF4444).copy(alpha = 0.80f))
                     }
                 }
             }
@@ -906,9 +1675,34 @@ fun SettingsScreen(
         }
     }
     if (showCityDialog) {
-        ChangeCityDialog(settings.savedCity, { showCityDialog = false },
-            { city -> scope.launch { userPreferences.saveLocationSettings(false, city, "", 0.0, 0.0) }; showCityDialog = false },
-            { scope.launch { userPreferences.saveLocationSettings(true, "", "", 0.0, 0.0) }; showCityDialog = false }
+        CitySearchDialog(
+            currentCity = settings.savedCity,
+            onDismiss = { showCityDialog = false },
+            onConfirm = { city ->
+                scope.launch {
+                    userPreferences.saveLocationSettings(false, city, "", 0.0, 0.0)
+                    rescheduleAlarms(context, userPreferences)
+                }
+                showCityDialog = false
+            },
+            onUseGps = {
+                // Request permission then immediately save useGps=true so HomeScreen re-fetches
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    val pm = context.packageManager
+                    val granted = pm.checkPermission(Manifest.permission.ACCESS_FINE_LOCATION, context.packageName) ==
+                                  android.content.pm.PackageManager.PERMISSION_GRANTED
+                    if (!granted) {
+                        locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    } else {
+                        scope.launch {
+                            userPreferences.saveLocationSettings(true, "", "", 0.0, 0.0)
+                        }
+                    }
+                } else {
+                    scope.launch { userPreferences.saveLocationSettings(true, "", "", 0.0, 0.0) }
+                }
+                showCityDialog = false
+            }
         )
     }
     if (showMethodDialog) {
@@ -921,59 +1715,35 @@ fun SettingsScreen(
             scope.launch { userPreferences.saveMadhab(madhab) }; showMadhabDialog = false
         }
     }
-    if (showGracePeriodDialog) {
-        GracePeriodDialog(settings.gracePeriodMinutes, { showGracePeriodDialog = false }) { minutes ->
-            scope.launch { userPreferences.saveGracePeriod(minutes) }; showGracePeriodDialog = false
-        }
-    }
-    if (showLockTriggerDialog) {
-        TriggerDialog(settings.lockTriggerMinutes, { showLockTriggerDialog = false }) { minutes ->
-            scope.launch { userPreferences.saveLockSettings(settings.lockMode, minutes, settings.lockDurationMinutes) }
-            showLockTriggerDialog = false
-        }
-    }
-    if (showLockDurationDialog) {
-        DurationDialog(settings.lockDurationMinutes, { showLockDurationDialog = false }) { minutes ->
-            scope.launch { userPreferences.saveLockSettings(settings.lockMode, settings.lockTriggerMinutes, minutes) }
-            showLockDurationDialog = false
-        }
+    if (showAdhanDialog) {
+        AdhanPickerDialog(
+            currentName = settings.adhanSoundName.ifEmpty { "Mishary Al-Afasy" },
+            onDismiss = { showAdhanDialog = false },
+            onSelect = { name, url ->
+                scope.launch { userPreferences.saveAdhanSound(name, url) }
+                showAdhanDialog = false
+            }
+        )
     }
 }
 
-// ── Reusable composables ──────────────────────────────────────────────────────
+// ── Components ────────────────────────────────────────────────────────────────
 
 @Composable
 private fun SectionLabel(text: String) {
-    Text(
-        text = text.uppercase(),
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 1.5.sp,
-        color = SlateMuted,
-        modifier = Modifier
-            .padding(horizontal = 26.dp)
-            .padding(top = 24.dp, bottom = 8.dp)
-    )
+    Text(text.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp,
+        color = SlateMuted, modifier = Modifier.padding(horizontal = 26.dp).padding(top = 24.dp, bottom = 8.dp))
 }
 
 @Composable
 private fun GlassCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(GlassFill)
-            .border(1.dp, GlassBrd, RoundedCornerShape(16.dp))
-    ) { content() }
+    Column(modifier = modifier.clip(RoundedCornerShape(16.dp)).background(GlassFill)
+        .border(1.dp, GlassBrd, RoundedCornerShape(16.dp))) { content() }
 }
 
 @Composable
 private fun GlassDivider() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(GlassDiv)
-    )
+    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(GlassDiv))
 }
 
 @Composable
@@ -984,62 +1754,94 @@ private fun SettingsRow(
     trailing: @Composable (() -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+    Row(modifier = Modifier.fillMaxWidth()
+        .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+        .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Blue icon square
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(PrimaryBlue.copy(alpha = 0.10f)),
-            contentAlignment = Alignment.Center
-        ) {
+        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
+            .background(PrimaryBlue.copy(alpha = 0.10f)), contentAlignment = Alignment.Center) {
             Icon(icon, null, tint = PrimaryBlue, modifier = Modifier.size(22.dp))
         }
-
         Column(modifier = Modifier.weight(1f)) {
             Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White)
-            if (subtitle != null) {
+            if (subtitle != null)
                 Text(subtitle, fontSize = 12.sp, color = SlateText, modifier = Modifier.padding(top = 1.dp))
-            }
         }
-
         trailing?.invoke()
     }
 }
 
 @Composable
 private fun blueSwitchColors() = SwitchDefaults.colors(
-    checkedThumbColor  = Color.White,
-    checkedTrackColor  = PrimaryBlue,
-    uncheckedThumbColor = Color.White,
-    uncheckedTrackColor = Color(0xFF334155)  // slate-700
-)
+    checkedThumbColor = Color.White, checkedTrackColor = PrimaryBlue,
+    uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF334155))
 
-// ── Dialogs (all functionality preserved) ────────────────────────────────────
+// ── Dialogs ───────────────────────────────────────────────────────────────────
 
 @Composable
 private fun NameDialog(currentName: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var name by remember { mutableStateOf(currentName) }
     AlertDialog(onDismissRequest = onDismiss, title = { Text("Your Name") },
-        text = { OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, unfocusedBorderColor = GlassBorder)) },
+        text = { OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, unfocusedBorderColor = GlassBorder)) },
         confirmButton = { Button(onClick = { onConfirm(name) }, colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }, containerColor = MidnightBlue)
 }
 
 @Composable
-private fun ChangeCityDialog(currentCity: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit, onUseGps: () -> Unit) {
-    var city by remember { mutableStateOf(currentCity) }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Change Location") },
-        text = { Column { OutlinedTextField(value = city, onValueChange = { city = it }, label = { Text("City Name") }, placeholder = { Text("e.g. Dubai") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, unfocusedBorderColor = GlassBorder, focusedTextColor = Color.White, unfocusedTextColor = Color.White)); Spacer(Modifier.height(12.dp)); TextButton(onClick = onUseGps) { Text("Use GPS instead", color = LavenderGlow) } } },
-        confirmButton = { Button(onClick = { if (city.isNotBlank()) onConfirm(city.trim()) }, colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)) { Text("Confirm") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }, containerColor = MidnightBlue)
+private fun CitySearchDialog(
+    currentCity: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+    onUseGps: () -> Unit
+) {
+    var query        by remember { mutableStateOf("") }
+    var selectedCity by remember { mutableStateOf(currentCity) }
+    val focusManager = LocalFocusManager.current
+    val filtered = remember(query) {
+        if (query.length < 2) emptyList()
+        else CITY_LIST.filter { it.contains(query, ignoreCase = true) }.take(6)
+    }
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Prayer Location") },
+        text = {
+            Column {
+                OutlinedTextField(value = query, onValueChange = { query = it; selectedCity = "" },
+                    label = { Text("Search city") }, placeholder = { Text("e.g. Dubai") }, singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue,
+                        unfocusedBorderColor = GlassBorder, focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                if (filtered.isNotEmpty() && selectedCity.isEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Column(modifier = Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp)).background(Color(0xFF1A1F35))
+                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))) {
+                        filtered.forEachIndexed { idx, city ->
+                            Row(modifier = Modifier.fillMaxWidth()
+                                .clickable { selectedCity = city; query = city; focusManager.clearFocus() }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.LocationOn, null, tint = PrimaryBlue, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(city, fontSize = 13.sp, color = Color.White)
+                            }
+                            if (idx < filtered.lastIndex)
+                                androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                TextButton(onClick = onUseGps, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Use GPS — scan my location now", color = PrimaryBlue)
+                }
+            }
+        },
+        confirmButton = { Button(onClick = { val c = selectedCity.ifEmpty { query }.trim(); if (c.isNotBlank()) onConfirm(c) },
+            enabled = selectedCity.isNotEmpty() || query.isNotBlank(),
+            colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)) { Text("Confirm") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        containerColor = MidnightBlue)
 }
 
 @Composable
@@ -1057,35 +1859,29 @@ private fun MadhabDialog(currentMadhab: Madhab, onDismiss: () -> Unit, onSelect:
 }
 
 @Composable
-private fun GracePeriodDialog(currentMinutes: Int, onDismiss: () -> Unit, onSelect: (Int) -> Unit) {
-    val options = listOf(0, 5, 10, 15, 30)
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Grace Period") },
-        text = { Column { options.forEach { m -> Row(Modifier.fillMaxWidth().clickable { onSelect(m) }.padding(vertical = 12.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) { Text(if (m == 0) "No grace period" else "$m minutes"); if (m == currentMinutes) Icon(Icons.Default.Check, null, tint = PrimaryBlue) } } } },
+private fun AdhanPickerDialog(currentName: String, onDismiss: () -> Unit, onSelect: (String, String) -> Unit) {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Adhan Sound") },
+        text = {
+            Column {
+                ADHAN_OPTIONS.forEach { (name, url) ->
+                    Row(Modifier.fillMaxWidth().clickable { onSelect(name, url) }.padding(vertical = 12.dp),
+                        Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Icon(Icons.Default.MusicNote, null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                            Text(name, color = Color.White)
+                        }
+                        if (name == currentName) Icon(Icons.Default.Check, null, tint = PrimaryBlue)
+                    }
+                }
+            }
+        },
         confirmButton = {}, containerColor = MidnightBlue)
 }
 
-@Composable
-private fun TriggerDialog(currentMinutes: Int, onDismiss: () -> Unit, onSelect: (Int) -> Unit) {
-    val options = listOf(0, 5, 10, 15, 30)
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Lock Trigger") },
-        text = { Column { options.forEach { m -> Row(Modifier.fillMaxWidth().clickable { onSelect(m) }.padding(vertical = 12.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) { Text(if (m == 0) "At prayer time" else "$m min after prayer"); if (m == currentMinutes) Icon(Icons.Default.Check, null, tint = WarmAmber) } } } },
-        confirmButton = {}, containerColor = MidnightBlue)
-}
-
-@Composable
-private fun DurationDialog(currentMinutes: Int, onDismiss: () -> Unit, onSelect: (Int) -> Unit) {
-    val options = listOf(5, 10, 15, 20, 30, 60)
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Lock Duration") },
-        text = { Column { options.forEach { m -> Row(Modifier.fillMaxWidth().clickable { onSelect(m) }.padding(vertical = 12.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) { Text("$m minutes"); if (m == currentMinutes) Icon(Icons.Default.Check, null, tint = WarmAmber) } } } },
-        confirmButton = {}, containerColor = MidnightBlue)
-}
-
-private suspend fun rescheduleAlarms(
-    context: android.content.Context,
-    userPreferences: UserPreferences
-) {
-    val settings   = userPreferences.userSettings.first()
-    val app        = context.applicationContext as SujoodApplication
+private suspend fun rescheduleAlarms(context: android.content.Context, userPreferences: UserPreferences) {
+    val settings = userPreferences.userSettings.first()
+    val app = context.applicationContext as SujoodApplication
     val repository = PrayerTimesRepository(RetrofitClient.aladhanApiService, app.database.prayerLogDao())
     val result = when {
         settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0 ->
@@ -1100,17 +1896,102 @@ private suspend fun rescheduleAlarms(
         scheduler.scheduleAllAlarms(prayerTimes, notif, lock, settings.gracePeriodMinutes)
     }
 }
-'''
+''')
 
-# ── Write all files ───────────────────────────────────────────────────────────
-for (kind, relpath), content in files.items():
-    base     = SRC if kind == 'src' else RES
-    fullpath = os.path.join(base, relpath.replace("/", os.sep))
-    os.makedirs(os.path.dirname(fullpath), exist_ok=True)
-    with open(fullpath, "w", encoding="utf-8", newline="\n") as f:
-        f.write(content)
-    print(f"  ✓ {relpath}")
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. UserPreferences — add adhanSoundName + adhanSoundUrl fields
+#    (needed by SettingsScreen and PrayerLockOverlayService)
+# ─────────────────────────────────────────────────────────────────────────────
+prefs_path = os.path.join(SRC, "data","local","datastore","UserPreferences.kt")
+with open(prefs_path, encoding="utf-8") as f:
+    prefs = f.read()
 
-print("\nDone! Now run:")
-print("  cd Sujood")
-print("  ./gradlew assembleDebug")
+# Add two new keys after ADHAN_ENABLED
+if "ADHAN_SOUND_NAME" not in prefs:
+    prefs = prefs.replace(
+        'val ADHAN_ENABLED = booleanPreferencesKey("adhan_enabled")',
+        'val ADHAN_ENABLED = booleanPreferencesKey("adhan_enabled")\n'
+        '        val ADHAN_SOUND_NAME = stringPreferencesKey("adhan_sound_name")\n'
+        '        val ADHAN_SOUND_URL  = stringPreferencesKey("adhan_sound_url")'
+    )
+
+# Add fields to UserSettings data class mapping
+if "adhanSoundName" not in prefs:
+    prefs = prefs.replace(
+        'adhanEnabled = preferences[PreferencesKeys.ADHAN_ENABLED] ?: true,',
+        'adhanEnabled = preferences[PreferencesKeys.ADHAN_ENABLED] ?: true,\n'
+        '            adhanSoundName = preferences[PreferencesKeys.ADHAN_SOUND_NAME] ?: "",\n'
+        '            adhanSoundUrl  = preferences[PreferencesKeys.ADHAN_SOUND_URL]  ?: "",'
+    )
+
+# Add saveAdhanSound method
+if "saveAdhanSound" not in prefs:
+    prefs = prefs.replace(
+        'suspend fun saveAudioSettings',
+        'suspend fun saveAdhanSound(name: String, url: String) {\n'
+        '        context.dataStore.edit { preferences ->\n'
+        '            preferences[PreferencesKeys.ADHAN_SOUND_NAME] = name\n'
+        '            preferences[PreferencesKeys.ADHAN_SOUND_URL]  = url\n'
+        '        }\n'
+        '    }\n\n'
+        '    suspend fun saveAudioSettings'
+    )
+
+with open(prefs_path, "w", encoding="utf-8", newline="\n") as f:
+    f.write(prefs)
+print("  ✓  data/local/datastore/UserPreferences.kt  (adhan sound fields)")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. UserSettings model — add adhanSoundName + adhanSoundUrl
+# ─────────────────────────────────────────────────────────────────────────────
+models_path = os.path.join(SRC, "domain","model","Models.kt")
+with open(models_path, encoding="utf-8") as f:
+    models = f.read()
+
+if "adhanSoundName" not in models:
+    models = models.replace(
+        'val adhanEnabled: Boolean = true,',
+        'val adhanEnabled: Boolean = true,\n'
+        '    val adhanSoundName: String = "",\n'
+        '    val adhanSoundUrl: String  = "",'
+    )
+    with open(models_path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(models)
+    print("  ✓  domain/model/Models.kt  (adhan sound fields)")
+else:
+    print("  –  domain/model/Models.kt  (already patched)")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. PrayerLockOverlayService — use saved adhan URL instead of hardcoded one
+# ─────────────────────────────────────────────────────────────────────────────
+svc_path = os.path.join(SRC, "service","PrayerLockOverlayService.kt")
+with open(svc_path, encoding="utf-8") as f:
+    svc = f.read()
+
+svc = svc.replace(
+    'val adhanUrl = "https://cdn.islamic.network/quran/audio/128/ar.alafasy/1.mp3"',
+    'val adhanUrl = settings.adhanSoundUrl.ifEmpty { "https://cdn.islamic.network/quran/audio/128/ar.alafasy/1.mp3" }'
+)
+
+with open(svc_path, "w", encoding="utf-8", newline="\n") as f:
+    f.write(svc)
+print("  ✓  service/PrayerLockOverlayService.kt  (use saved adhan URL)")
+
+print("""
+╔══════════════════════════════════════════════════════╗
+║  All done!  Now run:                                 ║
+║    cd Sujood                                         ║
+║    ./gradlew assembleDebug                           ║
+╚══════════════════════════════════════════════════════╝
+
+Files changed:
+  1. EmotionalOnboardingScreen.kt  — saves onboarding=true on Enter button
+  2. HomeScreen.kt                 — sleek Canvas prayer icons, no LocationOn bug
+  3. DhikrScreen.kt                — Test Lock (real), Specific Apps picker, no preview
+  4. QiblaScreen.kt                — shows user's city name via Geocoder
+  5. SettingsScreen.kt             — GPS instant scan, clear cache works,
+                                     adhan picker, city dropdown search
+  6. UserPreferences.kt            — adhanSoundName + adhanSoundUrl fields
+  7. Models.kt (UserSettings)      — adhanSoundName + adhanSoundUrl fields
+  8. PrayerLockOverlayService.kt   — reads saved adhan URL
+""")

@@ -26,7 +26,6 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -61,15 +61,11 @@ import kotlinx.coroutines.delay
 import java.util.Calendar
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.abs
 
-// Design constants extracted from the HTML/PNG
-private val PrimaryBlue   = Color(0xFF1132D4)
+private val PrimaryBlue    = Color(0xFF1132D4)
 private val BackgroundDark = Color(0xFF101322)
-private val SurfaceCard   = Color(0xFF1A1F35)
-private val SurfaceDim    = Color(0xFF151929)
-private val BorderBlue    = Color(0x331132D4)
-private val BorderSubtle  = Color(0x40FFFFFF)
+private val SurfaceCard    = Color(0xFF1A1F35)
+private val BorderSubtle   = Color(0x40FFFFFF)
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -77,9 +73,9 @@ fun HomeScreen(
     userPreferences: UserPreferences = UserPreferences(LocalContext.current),
     repository: PrayerTimesRepository? = null
 ) {
-    val context = LocalContext.current
+    val context  = LocalContext.current
     val database = (context.applicationContext as? com.sujood.app.SujoodApplication)?.database
-    val repo = repository ?: remember {
+    val repo     = repository ?: remember {
         database?.let { PrayerTimesRepository(RetrofitClient.aladhanApiService, it.prayerLogDao()) }
     }
 
@@ -95,9 +91,9 @@ fun HomeScreen(
         } else throw IllegalStateException("Repository not available")
     }
 
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState   by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
-    var visible by remember { mutableStateOf(false) }
+    var visible   by remember { mutableStateOf(false) }
     val locationPermission = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
 
     LaunchedEffect(locationPermission.status.isGranted) {
@@ -108,129 +104,92 @@ fun HomeScreen(
     }
     LaunchedEffect(Unit) { delay(100); visible = true }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BackgroundDark)
-    ) {
-        // Blob gradients — fixed behind everything
-        Box(
-            modifier = Modifier.fillMaxSize().background(
-                brush = Brush.radialGradient(
-                    colors = listOf(PrimaryBlue.copy(alpha = 0.15f), Color.Transparent),
-                    center = Offset(0f, 0f), radius = 600f
-                )
+    Box(modifier = Modifier.fillMaxSize().background(BackgroundDark)) {
+        Box(modifier = Modifier.fillMaxSize().background(
+            brush = Brush.radialGradient(
+                colors = listOf(PrimaryBlue.copy(alpha = 0.15f), Color.Transparent),
+                center = Offset(0f, 0f), radius = 600f
             )
-        )
-        Box(
-            modifier = Modifier.fillMaxSize().background(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFF9333EA).copy(alpha = 0.10f), Color.Transparent),
-                    center = Offset(Float.MAX_VALUE, Float.MAX_VALUE), radius = 800f
-                )
+        ))
+        Box(modifier = Modifier.fillMaxSize().background(
+            brush = Brush.radialGradient(
+                colors = listOf(Color(0xFF9333EA).copy(alpha = 0.10f), Color.Transparent),
+                center = Offset(Float.MAX_VALUE, Float.MAX_VALUE), radius = 800f
             )
-        )
+        ))
 
         when {
-            !locationPermission.status.isGranted -> {
+            !locationPermission.status.isGranted ->
                 LocationPermissionCard(onRequestPermission = { locationPermission.launchPermissionRequest() })
-            }
-            uiState.isLoading || uiState.isLoadingLocation -> {
-                LoadingContent()
-            }
-            uiState.showCityInput -> {
-                CityInputContent(
-                    error = uiState.error,
-                    onSubmitCity = { city -> viewModel.fetchPrayerTimesByCity(context, city) },
-                    onRetry = { viewModel.fetchPrayerTimes(context) }
-                )
-            }
-            uiState.error != null && uiState.prayerTimes.isEmpty() -> {
-                ErrorContent(
-                    error = uiState.error!!,
-                    onRetry = { viewModel.fetchPrayerTimes(context) },
-                    onUseCity = { viewModel.showCityInput() },
-                    context = context
-                )
-            }
-            else -> {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 100.dp)
-                ) {
-                    // ── HERO HEADER ──
-                    item {
-                        HeroSection(
-                            userName = uiState.userName,
-                            nextPrayerInfo = uiState.nextPrayerInfo,
-                            prayerTimes = uiState.prayerTimes,
-                            completedPrayers = uiState.completedPrayersToday.toSet(),
-                            streakDays = uiState.streakDays,
-                            onCompleteClick = { viewModel.logPrayerCompletion(it) }
+            uiState.isLoading || uiState.isLoadingLocation -> LoadingContent()
+            uiState.showCityInput -> CityInputContent(
+                error = uiState.error,
+                onSubmitCity = { city -> viewModel.fetchPrayerTimesByCity(context, city) },
+                onRetry = { viewModel.fetchPrayerTimes(context) }
+            )
+            uiState.error != null && uiState.prayerTimes.isEmpty() -> ErrorContent(
+                error = uiState.error!!,
+                onRetry = { viewModel.fetchPrayerTimes(context) },
+                onUseCity = { viewModel.showCityInput() },
+                context = context
+            )
+            else -> LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 100.dp)
+            ) {
+                item {
+                    HeroSection(
+                        userName = uiState.userName,
+                        nextPrayerInfo = uiState.nextPrayerInfo,
+                        prayerTimes = uiState.prayerTimes,
+                        completedPrayers = uiState.completedPrayersToday.toSet(),
+                        streakDays = uiState.streakDays,
+                        onCompleteClick = { viewModel.logPrayerCompletion(it) }
+                    )
+                }
+                item {
+                    AnimatedVisibility(visible = visible, enter = fadeIn(tween(400, delayMillis = 100))) {
+                        Text(
+                            text = "DAILY PRAYERS",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White.copy(alpha = 0.45f),
+                            letterSpacing = 2.sp,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
                         )
                     }
-
-                    // ── DAILY PRAYERS LABEL ──
-                    item {
-                        AnimatedVisibility(
-                            visible = visible,
-                            enter = fadeIn(tween(400, delayMillis = 100))
-                        ) {
-                            Text(
-                                text = "DAILY PRAYERS",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White.copy(alpha = 0.45f),
-                                letterSpacing = 2.sp,
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
-                            )
-                        }
-                    }
-
-                    // ── PRAYER ROWS ──
-                    itemsIndexed(uiState.prayerTimes) { index, prayerTime ->
-                        val isCompleted = uiState.completedPrayersToday.contains(prayerTime.prayer)
-                        val np = uiState.nextPrayerInfo
-                        val isCurrent = np != null && np.isCurrentPrayer && np.prayer == prayerTime.prayer
-
-                        AnimatedVisibility(
-                            visible = visible,
-                            enter = fadeIn(tween(400, delayMillis = 150 + index * 70)) +
-                                    slideInVertically(tween(400, delayMillis = 150 + index * 70)) { 24 }
-                        ) {
-                            PrayerRow(
-                                prayerTime = prayerTime,
-                                isCompleted = isCompleted,
-                                isCurrent = isCurrent,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp),
-                                onClick = { viewModel.logPrayerCompletion(prayerTime.prayer) }
-                            )
-                        }
-                    }
-
-                    // ── QUOTE CARD ──
-                    item {
-                        AnimatedVisibility(
-                            visible = visible,
-                            enter = fadeIn(tween(600, delayMillis = 600))
-                        ) {
-                            DailyQuoteCard(
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                            )
-                        }
-                    }
-
-                    item { Spacer(modifier = Modifier.height(32.dp)) }
                 }
+                itemsIndexed(uiState.prayerTimes) { index, prayerTime ->
+                    val isCompleted = uiState.completedPrayersToday.contains(prayerTime.prayer)
+                    val np = uiState.nextPrayerInfo
+                    val isCurrent = np != null && np.isCurrentPrayer && np.prayer == prayerTime.prayer
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(400, delayMillis = 150 + index * 70)) +
+                                slideInVertically(tween(400, delayMillis = 150 + index * 70)) { 24 }
+                    ) {
+                        PrayerRow(
+                            prayerTime = prayerTime,
+                            isCompleted = isCompleted,
+                            isCurrent = isCurrent,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp),
+                            onClick = { viewModel.logPrayerCompletion(prayerTime.prayer) }
+                        )
+                    }
+                }
+                item {
+                    AnimatedVisibility(visible = visible, enter = fadeIn(tween(600, delayMillis = 600))) {
+                        DailyQuoteCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+                    }
+                }
+                item { Spacer(modifier = Modifier.height(32.dp)) }
             }
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HERO SECTION
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Hero ──────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun HeroSection(
@@ -247,102 +206,58 @@ private fun HeroSection(
             .shadow(elevation = 24.dp, shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
                 spotColor = PrimaryBlue.copy(alpha = 0.3f))
             .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(PrimaryBlue.copy(alpha = 0.18f), BackgroundDark)
-                )
-            )
-            .border(
-                width = 1.dp,
-                brush = Brush.verticalGradient(
-                    colors = listOf(PrimaryBlue.copy(alpha = 0.3f), Color.Transparent)
-                ),
-                shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
-            )
+            .background(brush = Brush.verticalGradient(colors = listOf(PrimaryBlue.copy(alpha = 0.18f), BackgroundDark)))
+            .border(width = 1.dp,
+                brush = Brush.verticalGradient(colors = listOf(PrimaryBlue.copy(alpha = 0.3f), Color.Transparent)),
+                shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 20.dp)
-                .padding(top = 16.dp, bottom = 24.dp),
+            modifier = Modifier.fillMaxWidth().statusBarsPadding()
+                .padding(horizontal = 20.dp).padding(top = 16.dp, bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ── Top bar: avatar + name + bell ──
-            Row(
-                modifier = Modifier.fillMaxWidth(),
+            Row(modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // Avatar circle
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(PrimaryBlue.copy(alpha = 0.2f))
-                            .border(1.dp, PrimaryBlue.copy(alpha = 0.4f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(modifier = Modifier.size(42.dp).clip(CircleShape)
+                        .background(PrimaryBlue.copy(alpha = 0.2f))
+                        .border(1.dp, PrimaryBlue.copy(alpha = 0.4f), CircleShape),
+                        contentAlignment = Alignment.Center) {
                         Icon(imageVector = Icons.Default.Person, contentDescription = null,
                             tint = PrimaryBlue, modifier = Modifier.size(24.dp))
                     }
-                    // Greeting
                     Row {
                         Text("Salam, ", style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold, color = Color.White)
-                        Text(
-                            text = userName.ifEmpty { "Friend" },
+                        Text(text = userName.ifEmpty { "Friend" },
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryBlue
-                        )
+                            fontWeight = FontWeight.Bold, color = PrimaryBlue)
                     }
                 }
-                // Notification bell
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.08f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(imageVector = Icons.Default.Notifications, contentDescription = "Notifications",
+                Box(modifier = Modifier.size(40.dp).clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
+                    Icon(imageVector = Icons.Default.Notifications, contentDescription = null,
                         tint = Color.White, modifier = Modifier.size(22.dp))
                 }
             }
-
             Spacer(modifier = Modifier.height(20.dp))
-
-            // ── Sun Arc ──
             SunArcWidget(
                 modifier = Modifier.fillMaxWidth().height(120.dp),
                 prayerTimes = prayerTimes,
                 completedPrayers = completedPrayers,
                 nextPrayerInfo = nextPrayerInfo
             )
-
             Spacer(modifier = Modifier.height(4.dp))
-
-            // ── Prayer name labels under arc ──
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                listOf("FAJR", "DHUHR", "ASR", "MAGHRIB", "ISHA").forEach { name ->
-                    Text(
-                        text = name,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                        color = Color.White.copy(alpha = 0.35f)
-                    )
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                listOf("FAJR","DHUHR","ASR","MAGHRIB","ISHA").forEach { name ->
+                    Text(text = name, fontSize = 8.sp, fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp, color = Color.White.copy(alpha = 0.35f))
                 }
             }
-
             Spacer(modifier = Modifier.height(20.dp))
-
-            // ── Streak + today's prayer dots card ──
             StreakAndDotsCard(
                 streakDays = streakDays,
                 prayerTimes = prayerTimes,
@@ -352,9 +267,7 @@ private fun HeroSection(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUN ARC
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Sun arc ───────────────────────────────────────────────────────────────────
 
 @Composable
 private fun SunArcWidget(
@@ -369,139 +282,70 @@ private fun SunArcWidget(
         animationSpec = tween(1500, easing = LinearOutSlowInEasing),
         label = "sun"
     )
-
-    // "Time for Dhuhr" pill label
     val pillText = when {
         nextPrayerInfo != null && nextPrayerInfo.isCurrentPrayer -> "Time for ${nextPrayerInfo.prayer.displayName}"
         nextPrayerInfo != null -> "Next: ${nextPrayerInfo.prayer.displayName}"
         else -> ""
     }
-
     Box(modifier = modifier, contentAlignment = Alignment.BottomCenter) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val cx = size.width / 2f
             val cy = size.height + size.height * 0.05f
             val r  = size.width * 0.44f
-
-            // Dashed arc
             val arcPath = Path().apply {
-                addArc(
-                    oval = Rect(cx - r, cy - r, cx + r, cy + r),
-                    startAngleDegrees = 180f,
-                    sweepAngleDegrees = 180f
-                )
+                addArc(oval = Rect(cx - r, cy - r, cx + r, cy + r),
+                    startAngleDegrees = 180f, sweepAngleDegrees = 180f)
             }
-            drawPath(
-                path = arcPath,
-                color = Color.White.copy(alpha = 0.18f),
-                style = Stroke(width = 2f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f)))
-            )
-
-            // Sun position
+            drawPath(arcPath, color = Color.White.copy(alpha = 0.18f),
+                style = Stroke(width = 2f,
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f))))
             val sunAngle = Math.toRadians(180.0 + animatedProgress * 180.0)
             val sunX = cx + r * cos(sunAngle).toFloat()
             val sunY = cy + r * sin(sunAngle).toFloat()
-
-            // Sun glow
-            drawCircle(
-                brush = Brush.radialGradient(
-                    listOf(Color(0xFFFBBF24).copy(alpha = 0.35f), Color.Transparent),
-                    center = Offset(sunX, sunY), radius = 40f
-                ),
-                radius = 40f, center = Offset(sunX, sunY)
-            )
-            // Sun core
+            drawCircle(brush = Brush.radialGradient(listOf(Color(0xFFFBBF24).copy(alpha = 0.35f), Color.Transparent),
+                center = Offset(sunX, sunY), radius = 40f), radius = 40f, center = Offset(sunX, sunY))
             drawCircle(color = Color(0xFFFBBF24), radius = 9f, center = Offset(sunX, sunY))
         }
-
-        // "Time for X" pill — overlaid at bottom centre
         if (pillText.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(BackgroundDark.copy(alpha = 0.75f))
-                    .border(1.dp, PrimaryBlue.copy(alpha = 0.3f), CircleShape)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            Row(modifier = Modifier.clip(CircleShape)
+                .background(BackgroundDark.copy(alpha = 0.75f))
+                .border(1.dp, PrimaryBlue.copy(alpha = 0.3f), CircleShape)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Small checkbox circle
-                Box(
-                    modifier = Modifier
-                        .size(20.dp)
-                        .clip(CircleShape)
-                        .border(1.5.dp, PrimaryBlue.copy(alpha = 0.6f), CircleShape)
-                )
-                Text(
-                    text = pillText,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(modifier = Modifier.size(20.dp).clip(CircleShape)
+                    .border(1.5.dp, PrimaryBlue.copy(alpha = 0.6f), CircleShape))
+                Text(text = pillText, style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold, color = Color.White)
             }
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STREAK + DOTS CARD
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Streak & dots ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun StreakAndDotsCard(
-    streakDays: Int,
-    prayerTimes: List<PrayerTime>,
-    completedPrayers: Set<Prayer>
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(
-                brush = Brush.horizontalGradient(
-                    listOf(PrimaryBlue.copy(alpha = 0.22f), Color(0xFF9333EA).copy(alpha = 0.10f))
-                )
-            )
-            .border(1.dp, PrimaryBlue.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
-            .padding(horizontal = 20.dp, vertical = 16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
+private fun StreakAndDotsCard(streakDays: Int, prayerTimes: List<PrayerTime>, completedPrayers: Set<Prayer>) {
+    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+        .background(brush = Brush.horizontalGradient(listOf(PrimaryBlue.copy(alpha = 0.22f), Color(0xFF9333EA).copy(alpha = 0.10f))))
+        .border(1.dp, PrimaryBlue.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
+        .padding(horizontal = 20.dp, vertical = 16.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Left: label + streak number
+            verticalAlignment = Alignment.CenterVertically) {
             Column {
-                Text(
-                    text = "TODAY'S PRAYERS",
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.5.sp,
-                    color = PrimaryBlue
-                )
+                Text("TODAY'S PRAYERS", fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.5.sp, color = PrimaryBlue)
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = "$streakDays",
-                        fontSize = 34.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White
-                    )
+                    Text("$streakDays", fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Days",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White.copy(alpha = 0.45f),
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    )
+                    Text("Days", fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                        color = Color.White.copy(alpha = 0.45f), modifier = Modifier.padding(bottom = 6.dp))
                 }
             }
-
-            // Right: 5 prayer dots in 3+2 layout
             val prayers = prayerTimes.map { it.prayer }
-            val top = prayers.take(3)
-            val bottom = prayers.drop(3)
+            val top = prayers.take(3); val bottom = prayers.drop(3)
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 PrayerDotRow(prayers = top, completedPrayers = completedPrayers)
                 Row(modifier = Modifier.padding(end = 20.dp)) {
@@ -518,37 +362,24 @@ private fun PrayerDotRow(prayers: List<Prayer>, completedPrayers: Set<Prayer>) {
         prayers.forEach { prayer ->
             val done = completedPrayers.contains(prayer)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(if (done) PrimaryBlue else Color.White.copy(alpha = 0.07f))
-                        .border(2.dp, BackgroundDark.copy(alpha = 0.6f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = prayer.displayName.first().toString(),
-                        fontSize = 10.sp,
+                Box(modifier = Modifier.size(32.dp).clip(CircleShape)
+                    .background(if (done) PrimaryBlue else Color.White.copy(alpha = 0.07f))
+                    .border(2.dp, BackgroundDark.copy(alpha = 0.6f), CircleShape),
+                    contentAlignment = Alignment.Center) {
+                    Text(prayer.displayName.first().toString(), fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (done) Color.White else Color.White.copy(alpha = 0.3f)
-                    )
+                        color = if (done) Color.White else Color.White.copy(alpha = 0.3f))
                 }
                 Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = prayer.displayName.uppercase(),
-                    fontSize = 7.sp,
-                    fontWeight = FontWeight.Bold,
+                Text(prayer.displayName.uppercase(), fontSize = 7.sp, fontWeight = FontWeight.Bold,
                     color = if (done) PrimaryBlue else Color.White.copy(alpha = 0.25f),
-                    letterSpacing = 0.5.sp
-                )
+                    letterSpacing = 0.5.sp)
             }
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PRAYER ROW  (replaces old PrayerTimeCard for home screen)
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Prayer row ────────────────────────────────────────────────────────────────
 
 @Composable
 private fun PrayerRow(
@@ -558,17 +389,10 @@ private fun PrayerRow(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val bgColor = when {
-        isCurrent  -> PrimaryBlue.copy(alpha = 0.12f)
-        else       -> Color.White.copy(alpha = 0.04f)
-    }
-    val borderColor = when {
-        isCurrent  -> PrimaryBlue.copy(alpha = 0.6f)
-        else       -> Color.White.copy(alpha = 0.07f)
-    }
+    val bgColor     = if (isCurrent) PrimaryBlue.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.04f)
+    val borderColor = if (isCurrent) PrimaryBlue.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.07f)
     val borderWidth = if (isCurrent) 2.dp else 1.dp
 
-    // Icon background + tint per prayer
     val (iconBg, iconTint) = when (prayerTime.prayer) {
         Prayer.FAJR    -> Color(0xFF172554).copy(alpha = 0.7f) to Color(0xFF60A5FA)
         Prayer.DHUHR   -> PrimaryBlue.copy(alpha = 0.9f)      to Color.White
@@ -578,82 +402,130 @@ private fun PrayerRow(
     }
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .background(bgColor)
             .border(borderWidth, borderColor, RoundedCornerShape(20.dp))
-            .then(if (isCurrent) Modifier.shadow(0.dp, RoundedCornerShape(20.dp),
-                spotColor = PrimaryBlue.copy(alpha = 0.4f)) else Modifier)
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            // Icon circle
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(iconBg)
-                    .then(if (isCurrent) Modifier.shadow(8.dp, CircleShape,
-                        spotColor = PrimaryBlue.copy(alpha = 0.5f)) else Modifier),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = prayerEmojiIcon(prayerTime.prayer), fontSize = 18.sp)
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            // ── Sleek Canvas icon — no emoji, no stock Android icons ──
+            Box(modifier = Modifier.size(42.dp).clip(CircleShape).background(iconBg),
+                contentAlignment = Alignment.Center) {
+                Canvas(modifier = Modifier.size(22.dp)) {
+                    drawPrayerIcon(prayerTime.prayer, iconTint)
+                }
             }
-
             Column {
-                Text(
-                    text = prayerTime.prayer.displayName,
+                Text(text = prayerTime.prayer.displayName,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
-                    color = if (isCurrent) PrimaryBlue else Color.White
-                )
-                Text(
-                    text = prayerTime.time,
+                    color = if (isCurrent) PrimaryBlue else Color.White)
+                Text(text = prayerTime.time,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.4f)
-                )
+                    color = Color.White.copy(alpha = 0.4f))
             }
         }
 
-        // Right side indicator
+        // Right indicator — clean checkmark (no LocationOn icon)
         when {
-            isCompleted -> Icon(
-                imageVector = androidx.compose.material.icons.Icons.Default.LocationOn,
-                contentDescription = "Done",
-                tint = Color(0xFF22C55E),
-                modifier = Modifier.size(26.dp)
-            ).also {
-                // Use check circle via text emoji
-            }.let {
-                Text("✓", fontSize = 22.sp, color = Color(0xFF22C55E), fontWeight = FontWeight.Bold)
+            isCompleted -> Canvas(modifier = Modifier.size(26.dp)) {
+                // Green filled circle with white check
+                drawCircle(color = Color(0xFF22C55E), radius = size.minDimension / 2f)
+                val s = size.minDimension
+                val path = Path().apply {
+                    moveTo(s * 0.28f, s * 0.52f)
+                    lineTo(s * 0.44f, s * 0.68f)
+                    lineTo(s * 0.72f, s * 0.36f)
+                }
+                drawPath(path, Color.White, style = Stroke(width = 2.5f,
+                    cap = StrokeCap.Round, join = StrokeJoin.Round))
             }
-            isCurrent -> Text(
-                text = "CURRENT",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                color = PrimaryBlue,
-                letterSpacing = 1.sp
-            )
-            else -> Box(
-                modifier = Modifier
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .border(1.5.dp, Color.White.copy(alpha = 0.2f), CircleShape)
-            )
+            isCurrent   -> Text("CURRENT", fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                color = PrimaryBlue, letterSpacing = 1.sp)
+            else        -> Box(modifier = Modifier.size(22.dp).clip(CircleShape)
+                .border(1.5.dp, Color.White.copy(alpha = 0.2f), CircleShape))
         }
     }
 }
 
-private fun prayerEmojiIcon(prayer: Prayer): String = when (prayer) {
-    Prayer.FAJR    -> "🌅"
-    Prayer.DHUHR   -> "☀️"
-    Prayer.ASR     -> "🌤"
-    Prayer.MAGHRIB -> "🌙"
-    Prayer.ISHA    -> "🌃"
+/** Canvas-drawn Iconly-style icons for each prayer. No emoji, no Android icons. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPrayerIcon(prayer: Prayer, tint: Color) {
+    val w = size.width; val h = size.height; val sw = w * 0.09f
+
+    when (prayer) {
+        Prayer.FAJR -> {
+            // Half-sun rising over horizon line
+            val cx = w / 2f; val cy = h * 0.58f; val r = w * 0.28f
+            drawArc(color = tint, startAngle = 180f, sweepAngle = 180f, useCenter = false,
+                topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
+                style = Stroke(width = sw, cap = StrokeCap.Round))
+            drawLine(tint, Offset(0f, cy), Offset(w, cy), strokeWidth = sw, cap = StrokeCap.Round)
+            // Rays above
+            listOf(-45f, 0f, 45f).forEach { angle ->
+                val rad = Math.toRadians(angle.toDouble() - 90)
+                drawLine(tint,
+                    Offset(cx + (r + w*0.05f)*cos(rad).toFloat(), cy + (r + h*0.05f)*sin(rad).toFloat()),
+                    Offset(cx + (r + w*0.20f)*cos(rad).toFloat(), cy + (r + h*0.20f)*sin(rad).toFloat()),
+                    strokeWidth = sw * 0.8f, cap = StrokeCap.Round)
+            }
+        }
+        Prayer.DHUHR -> {
+            // Full sun with rays (midday)
+            val cx = w / 2f; val cy = h / 2f; val r = w * 0.22f
+            drawCircle(color = tint, radius = r, center = Offset(cx, cy), style = Stroke(width = sw))
+            listOf(0f, 45f, 90f, 135f, 180f, 225f, 270f, 315f).forEach { angle ->
+                val rad = Math.toRadians(angle.toDouble())
+                drawLine(tint,
+                    Offset(cx + (r + w*0.06f)*cos(rad).toFloat(), cy + (r + h*0.06f)*sin(rad).toFloat()),
+                    Offset(cx + (r + w*0.18f)*cos(rad).toFloat(), cy + (r + h*0.18f)*sin(rad).toFloat()),
+                    strokeWidth = sw * 0.8f, cap = StrokeCap.Round)
+            }
+        }
+        Prayer.ASR -> {
+            // Sun low + shadow/partial cloud
+            val cx = w / 2f; val cy = h * 0.55f; val r = w * 0.22f
+            drawCircle(color = tint, radius = r, center = Offset(cx, cy), style = Stroke(width = sw))
+            listOf(0f, 60f, 120f, 240f, 300f).forEach { angle ->
+                val rad = Math.toRadians(angle.toDouble())
+                drawLine(tint,
+                    Offset(cx + (r + w*0.06f)*cos(rad).toFloat(), cy + (r + h*0.06f)*sin(rad).toFloat()),
+                    Offset(cx + (r + w*0.17f)*cos(rad).toFloat(), cy + (r + h*0.17f)*sin(rad).toFloat()),
+                    strokeWidth = sw * 0.8f, cap = StrokeCap.Round)
+            }
+            drawLine(tint, Offset(0f, h * 0.82f), Offset(w, h * 0.82f),
+                strokeWidth = sw * 0.7f, cap = StrokeCap.Round)
+        }
+        Prayer.MAGHRIB -> {
+            // Crescent moon
+            val cx = w * 0.52f; val cy = h / 2f; val r = w * 0.32f
+            drawArc(color = tint, startAngle = 0f, sweepAngle = 360f, useCenter = false,
+                topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
+                style = Stroke(width = sw))
+            // Cutout circle to make crescent
+            drawCircle(color = Color.Transparent.copy(0f), radius = r * 0.85f,
+                center = Offset(cx + r * 0.42f, cy - r * 0.10f))
+            // Re-draw cutout as background color
+            val cutoutPath = Path()
+            cutoutPath.addOval(Rect(cx + r*0.42f - r*0.85f, cy - r*0.10f - r*0.85f,
+                cx + r*0.42f + r*0.85f, cy - r*0.10f + r*0.85f))
+            drawPath(cutoutPath, Color(0xFF101322))  // match background
+        }
+        Prayer.ISHA -> {
+            // Moon + small star
+            val cx = w * 0.48f; val cy = h * 0.52f; val r = w * 0.28f
+            drawArc(color = tint, startAngle = 40f, sweepAngle = 280f, useCenter = false,
+                topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
+                style = Stroke(width = sw, cap = StrokeCap.Round))
+            // Small star top-right
+            drawCircle(color = tint, radius = w * 0.07f,
+                center = Offset(w * 0.80f, h * 0.22f))
+        }
+    }
 }
 
 private fun getDayProgress(timestamp: Long): Float {
@@ -664,9 +536,7 @@ private fun getDayProgress(timestamp: Long): Float {
     return ((h * 3600 + m * 60 + s).toFloat() / (24 * 60 * 60)).coerceIn(0f, 1f)
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LOADING / ERROR / PERMISSION / CITY INPUT  (unchanged logic, updated style)
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Support screens ───────────────────────────────────────────────────────────
 
 @Composable
 private fun LocationPermissionCard(onRequestPermission: () -> Unit) {
@@ -685,9 +555,7 @@ private fun LocationPermissionCard(onRequestPermission: () -> Unit) {
                 Spacer(modifier = Modifier.height(24.dp))
                 Button(onClick = onRequestPermission, modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-                    shape = RoundedCornerShape(16.dp)) {
-                    Text("Grant Permission", fontWeight = FontWeight.Medium)
-                }
+                    shape = RoundedCornerShape(16.dp)) { Text("Grant Permission", fontWeight = FontWeight.Medium) }
             }
         }
     }
@@ -709,25 +577,25 @@ private fun LoadingContent() {
 private fun CityInputContent(error: String?, onSubmitCity: (String) -> Unit, onRetry: () -> Unit) {
     val allCities = remember {
         listOf(
-            "Dubai, UAE", "Abu Dhabi, UAE", "Sharjah, UAE", "Ajman, UAE", "Al Ain, UAE",
-            "Riyadh, Saudi Arabia", "Jeddah, Saudi Arabia", "Mecca, Saudi Arabia", "Medina, Saudi Arabia",
-            "London, UK", "Manchester, UK", "Birmingham, UK", "Glasgow, UK",
-            "New York, USA", "Los Angeles, USA", "Chicago, USA", "Houston, USA",
-            "Toronto, Canada", "Montreal, Canada", "Vancouver, Canada",
-            "Cairo, Egypt", "Alexandria, Egypt",
-            "Istanbul, Turkey", "Ankara, Turkey",
-            "Kuala Lumpur, Malaysia", "Jakarta, Indonesia",
-            "Karachi, Pakistan", "Lahore, Pakistan", "Islamabad, Pakistan",
-            "Dhaka, Bangladesh", "Mumbai, India", "Delhi, India",
-            "Paris, France", "Berlin, Germany", "Amsterdam, Netherlands",
-            "Lagos, Nigeria", "Nairobi, Kenya", "Casablanca, Morocco",
-            "Doha, Qatar", "Kuwait City, Kuwait", "Manama, Bahrain", "Muscat, Oman",
-            "Amman, Jordan", "Beirut, Lebanon", "Baghdad, Iraq", "Tehran, Iran",
-            "Sydney, Australia", "Singapore, Singapore", "Tokyo, Japan",
-            "Cape Town, South Africa", "Johannesburg, South Africa"
+            "Dubai, UAE","Abu Dhabi, UAE","Sharjah, UAE","Ajman, UAE","Al Ain, UAE",
+            "Riyadh, Saudi Arabia","Jeddah, Saudi Arabia","Mecca, Saudi Arabia","Medina, Saudi Arabia",
+            "London, UK","Manchester, UK","Birmingham, UK","Glasgow, UK",
+            "New York, USA","Los Angeles, USA","Chicago, USA","Houston, USA",
+            "Toronto, Canada","Montreal, Canada","Vancouver, Canada",
+            "Cairo, Egypt","Alexandria, Egypt",
+            "Istanbul, Turkey","Ankara, Turkey",
+            "Kuala Lumpur, Malaysia","Jakarta, Indonesia",
+            "Karachi, Pakistan","Lahore, Pakistan","Islamabad, Pakistan",
+            "Dhaka, Bangladesh","Mumbai, India","Delhi, India",
+            "Paris, France","Berlin, Germany","Amsterdam, Netherlands",
+            "Lagos, Nigeria","Nairobi, Kenya","Casablanca, Morocco",
+            "Doha, Qatar","Kuwait City, Kuwait","Manama, Bahrain","Muscat, Oman",
+            "Amman, Jordan","Beirut, Lebanon","Baghdad, Iraq","Tehran, Iran",
+            "Sydney, Australia","Singapore, Singapore","Tokyo, Japan",
+            "Cape Town, South Africa","Johannesburg, South Africa"
         ).sortedBy { it }
     }
-    var query by remember { mutableStateOf("") }
+    var query        by remember { mutableStateOf("") }
     var selectedCity by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
     val filtered = remember(query) {
@@ -736,7 +604,8 @@ private fun CityInputContent(error: String?, onSubmitCity: (String) -> Unit, onR
     }
 
     Box(modifier = Modifier.fillMaxSize().background(BackgroundDark), contentAlignment = Alignment.Center) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(modifier = Modifier.fillMaxWidth().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(imageVector = Icons.Default.MyLocation, contentDescription = null,
                 tint = Color(0xFFFBBF24), modifier = Modifier.size(64.dp))
             Spacer(modifier = Modifier.height(24.dp))
@@ -747,10 +616,8 @@ private fun CityInputContent(error: String?, onSubmitCity: (String) -> Unit, onR
                 color = Color.White.copy(alpha = 0.4f), textAlign = TextAlign.Center)
             Spacer(modifier = Modifier.height(28.dp))
             OutlinedTextField(
-                value = query,
-                onValueChange = { query = it; selectedCity = "" },
-                label = { Text("Search City") },
-                singleLine = true,
+                value = query, onValueChange = { query = it; selectedCity = "" },
+                label = { Text("Search City") }, singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = PrimaryBlue, unfocusedBorderColor = BorderSubtle,
@@ -762,19 +629,14 @@ private fun CityInputContent(error: String?, onSubmitCity: (String) -> Unit, onR
             )
             if (filtered.isNotEmpty() && selectedCity.isEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceCard)
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
-                ) {
+                Column(modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp)).background(SurfaceCard)
+                    .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))) {
                     filtered.forEachIndexed { idx, city ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth()
-                                .clickable { selectedCity = city; query = city; focusManager.clearFocus() }
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth()
+                            .clickable { selectedCity = city; query = city; focusManager.clearFocus() }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
                             Icon(imageVector = Icons.Default.LocationOn, contentDescription = null,
                                 tint = PrimaryBlue, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(10.dp))
@@ -791,17 +653,17 @@ private fun CityInputContent(error: String?, onSubmitCity: (String) -> Unit, onR
                     color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
             }
             Spacer(modifier = Modifier.height(24.dp))
-            Button(
-                onClick = {
-                    val city = selectedCity.ifEmpty { query }.trim()
-                    if (city.isNotBlank()) { focusManager.clearFocus(); onSubmitCity(city) }
-                },
+            Button(onClick = {
+                val city = selectedCity.ifEmpty { query }.trim()
+                if (city.isNotBlank()) { focusManager.clearFocus(); onSubmitCity(city) }
+            },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 enabled = selectedCity.isNotEmpty() || query.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
                 shape = RoundedCornerShape(26.dp)
             ) {
-                Text(if (selectedCity.isNotEmpty()) "Use $selectedCity" else "Search", fontWeight = FontWeight.SemiBold)
+                Text(if (selectedCity.isNotEmpty()) "Use $selectedCity" else "Search",
+                    fontWeight = FontWeight.SemiBold)
             }
             Spacer(modifier = Modifier.height(12.dp))
             TextButton(onClick = onRetry) {
@@ -830,9 +692,7 @@ private fun ErrorContent(error: String, onRetry: () -> Unit, onUseCity: () -> Un
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(onClick = onUseCity, modifier = Modifier.weight(1f),
                         border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryBlue),
-                        shape = RoundedCornerShape(12.dp)) {
-                        Text("Enter City", color = PrimaryBlue)
-                    }
+                        shape = RoundedCornerShape(12.dp)) { Text("Enter City", color = PrimaryBlue) }
                     Button(onClick = onRetry, modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
                         shape = RoundedCornerShape(12.dp)) { Text("Retry") }

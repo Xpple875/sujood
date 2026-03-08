@@ -502,6 +502,7 @@ private data class PermissionItem(
 @Composable
 private fun ReadyScreen(userPreferences: UserPreferences, onEnter: () -> Unit) {
     val userName by userPreferences.userName.collectAsState(initial = "")
+    val scope = rememberCoroutineScope()
 
     val infiniteTransition = rememberInfiniteTransition(label = "celebration")
     val scale by infiniteTransition.animateFloat(
@@ -530,7 +531,10 @@ private fun ReadyScreen(userPreferences: UserPreferences, onEnter: () -> Unit) {
             Spacer(modifier = Modifier.weight(1f))
 
             Button(
-                onClick = onEnter,
+                onClick = {
+                    scope.launch { userPreferences.setOnboardingCompleted() }
+                    onEnter()
+                },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SoftPurple),
                 shape = RoundedCornerShape(28.dp)
