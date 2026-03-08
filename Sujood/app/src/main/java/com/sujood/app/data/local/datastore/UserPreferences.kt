@@ -59,6 +59,8 @@ class UserPreferences(private val context: Context) {
         val LOCKED_APPS_PACKAGE_NAMES = stringPreferencesKey("locked_apps_package_names")
         val ADHAN_ENABLED = booleanPreferencesKey("adhan_enabled")
         val VIBRATION_ENABLED = booleanPreferencesKey("vibration_enabled")
+        val PRAYER_LOCK_ENABLED = booleanPreferencesKey("prayer_lock_enabled")
+        val OVERLAY_QUOTE = stringPreferencesKey("overlay_quote")
     }
 
     val userSettings: Flow<UserSettings> = context.dataStore.data.map { preferences ->
@@ -92,7 +94,9 @@ class UserPreferences(private val context: Context) {
             minLockDurationMinutes = preferences[PreferencesKeys.MIN_LOCK_DURATION_MINUTES] ?: 5,
             lockedAppsPackageNames = preferences[PreferencesKeys.LOCKED_APPS_PACKAGE_NAMES] ?: "",
             adhanEnabled = preferences[PreferencesKeys.ADHAN_ENABLED] ?: true,
-            vibrationEnabled = preferences[PreferencesKeys.VIBRATION_ENABLED] ?: true
+            vibrationEnabled = preferences[PreferencesKeys.VIBRATION_ENABLED] ?: true,
+            prayerLockEnabled = preferences[PreferencesKeys.PRAYER_LOCK_ENABLED] ?: true,
+            overlayQuote = preferences[PreferencesKeys.OVERLAY_QUOTE] ?: ""
         )
     }
 
@@ -173,6 +177,18 @@ class UserPreferences(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.MIN_LOCK_DURATION_MINUTES] = minDuration
             preferences[PreferencesKeys.LOCKED_APPS_PACKAGE_NAMES] = lockedApps
+        }
+    }
+
+    suspend fun savePrayerLockEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.PRAYER_LOCK_ENABLED] = enabled
+        }
+    }
+
+    suspend fun saveOverlayQuote(quote: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.OVERLAY_QUOTE] = quote
         }
     }
 

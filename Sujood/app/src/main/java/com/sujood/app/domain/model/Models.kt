@@ -123,7 +123,9 @@ data class UserSettings(
     val minLockDurationMinutes: Int = 5,
     val lockedAppsPackageNames: String = "",
     val adhanEnabled: Boolean = true,
-    val vibrationEnabled: Boolean = true
+    val vibrationEnabled: Boolean = true,
+    val prayerLockEnabled: Boolean = true,
+    val overlayQuote: String = ""
 )
 
 sealed class BottomNavItem(val route: String, val title: String, val iconName: String) {
