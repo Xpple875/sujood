@@ -141,7 +141,6 @@
         android:layout_width="28dp"
         android:layout_height="28dp"
         android:src="@drawable/ic_prayer_icon"
-        android:colorFilter="#661132D4"
         android:layout_marginBottom="52dp"
         app:layout_constraintBottom_toTopOf="@id/focusModeLabel"
         app:layout_constraintStart_toStartOf="parent"
@@ -161,8 +160,7 @@
         <ImageView
             android:layout_width="28dp"
             android:layout_height="28dp"
-            android:src="@drawable/ic_prayer_icon"
-            android:colorFilter="#661132D4"/>
+            android:src="@drawable/ic_prayer_icon"/>
 
         <TextView
             android:layout_width="wrap_content"
