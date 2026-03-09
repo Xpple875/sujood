@@ -211,7 +211,7 @@ fun HomeScreen(
                     )
                 }
                 item {
-                    AnimatedVisibility(visible, fadeIn(tween(400, delayMillis = 100))) {
+                    AnimatedVisibility(visible = visible, enter = fadeIn(tween(400, delayMillis = 100))) {
                         Text("DAILY PRAYERS", style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.45f),
                             letterSpacing = 2.sp,
@@ -222,9 +222,12 @@ fun HomeScreen(
                     val isCompleted = uiState.completedPrayersToday.contains(prayerTime.prayer)
                     val np = uiState.nextPrayerInfo
                     val isCurrent = np != null && np.isCurrentPrayer && np.prayer == prayerTime.prayer
-                    AnimatedVisibility(visible,
-                        fadeIn(tween(400, delayMillis = 150 + index * 70)) +
-                        slideInVertically(tween(400, delayMillis = 150 + index * 70)) { 24 }) {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(400, delayMillis = 150 + index * 70)) +
+                                slideInVertically(animationSpec = tween(400, delayMillis = 150 + index * 70),
+                                    initialOffsetY = { 24 })
+                    ) {
                         PrayerRow(prayerTime, isCompleted, isCurrent,
                             Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
                             viewModel.logPrayerCompletion(prayerTime.prayer)
@@ -232,7 +235,7 @@ fun HomeScreen(
                     }
                 }
                 item {
-                    AnimatedVisibility(visible, fadeIn(tween(600, delayMillis = 600))) {
+                    AnimatedVisibility(visible = visible, enter = fadeIn(tween(600, delayMillis = 600))) {
                         DailyQuoteCard(Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
                     }
                 }
@@ -266,7 +269,8 @@ private fun HeroSection(
             .padding(horizontal = 20.dp).padding(top = 16.dp, bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally) {
 
-            Row(Modifier.fillMaxWidth(), Alignment.CenterVertically, Arrangement.SpaceBetween) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween) {
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(Modifier.size(42.dp).clip(CircleShape).background(PrimaryBlue.copy(alpha = 0.2f))
@@ -351,7 +355,8 @@ private fun StreakAndDotsCard(streakDays: Int, prayerTimes: List<PrayerTime>, co
         .background(Brush.horizontalGradient(listOf(PrimaryBlue.copy(alpha = 0.22f), Color(0xFF9333EA).copy(alpha = 0.10f))))
         .border(1.dp, PrimaryBlue.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
         .padding(horizontal = 20.dp, vertical = 16.dp)) {
-        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Text("TODAY'S PRAYERS", fontSize = 9.sp, fontWeight = FontWeight.Bold,
                     letterSpacing = 1.5.sp, color = PrimaryBlue)
@@ -408,10 +413,13 @@ private fun PrayerRow(prayerTime: PrayerTime, isCompleted: Boolean, isCurrent: B
         Prayer.MAGHRIB -> Color(0xFF4C0519).copy(alpha = 0.7f) to Color(0xFFF87171)
         Prayer.ISHA    -> Color(0xFF1E1B4B).copy(alpha = 0.7f) to Color(0xFFA5B4FC)
     }
-    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(bgColor)
-        .border(if (isCurrent) 2.dp else 1.dp, borderColor, RoundedCornerShape(20.dp))
-        .clickable { onClick() }.padding(horizontal = 16.dp, vertical = 14.dp),
-        Alignment.CenterVertically, Arrangement.SpaceBetween) {
+    Row(
+        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(bgColor)
+            .border(if (isCurrent) 2.dp else 1.dp, borderColor, RoundedCornerShape(20.dp))
+            .clickable { onClick() }.padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(iconBg),
                 contentAlignment = Alignment.Center) {
