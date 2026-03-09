@@ -34,9 +34,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.sujood.app.data.local.datastore.UserPreferences
-import coil3.compose.AsyncImage
-import coil3.request.ImageRequest
-import coil3.request.crossfade
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+
 import com.sujood.app.domain.model.LockMode
 import com.sujood.app.domain.model.UserSettings
 import com.sujood.app.service.PrayerLockOverlayService

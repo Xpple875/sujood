@@ -102,8 +102,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // Coil for image loading (SimpleIcons brand logos)
-    implementation("io.coil-kt.coil3:coil-compose:3.1.0")
-    implementation("io.coil-kt.coil3:coil-network-okhttp:3.1.0")
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
     // Accompanist (for permissions, system UI controller)
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
