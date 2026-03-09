@@ -1,137 +1,147 @@
 import os, re
 
 SRC = os.path.join("Sujood","app","src","main","java","com","sujood","app")
+RES = os.path.join("Sujood","app","src","main","res")
+DRW = os.path.join(RES, "drawable")
 
-# ── MainActivity.kt ────────────────────────────────────────────────────────────
-# Move navbar out of Scaffold bottomBar into a Box overlay so the rounded
-# top corners float over content with no dark fill behind them.
+def write_res(fname, content):
+    p = os.path.join(DRW, fname)
+    with open(p, "w", encoding="utf-8", newline="\n") as f:
+        f.write(content)
+    print(f"  \u2713 drawable/{fname}")
 
-path = os.path.join(SRC, "MainActivity.kt")
-with open(path, encoding="utf-8") as f:
-    s = f.read()
+def write_src(rel, content):
+    p = os.path.join(SRC, *rel.split("/"))
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p, "w", encoding="utf-8", newline="\n") as f:
+        f.write(content)
+    print(f"  \u2713 {rel}")
 
-# Add Alignment import if not present
-if "import androidx.compose.ui.Alignment" not in s:
-    s = s.replace(
-        "import androidx.compose.ui.Modifier",
-        "import androidx.compose.ui.Alignment\nimport androidx.compose.ui.Modifier"
-    )
+def patch_src(rel, old, new, label=""):
+    p = os.path.join(SRC, *rel.split("/"))
+    with open(p, encoding="utf-8") as f:
+        s = f.read()
+    if old not in s:
+        print(f"  ! not found [{label}] in {rel}")
+        return
+    s = s.replace(old, new, 1)
+    with open(p, "w", encoding="utf-8", newline="\n") as f:
+        f.write(s)
+    print(f"  \u2713 {rel} [{label}]")
 
-# Replace the Scaffold + bottomBar block with a Box overlay approach
-old_scaffold = '''\
-    Box(\n        modifier = Modifier\n            .fillMaxSize()\n            .background(DeepNavy)\n    ) {\n        Scaffold(\n            modifier = Modifier.fillMaxSize(),\n            containerColor = Color.Transparent,\n            bottomBar = {\n                if (showBottomNavBar) {\n                    AnimatedVisibility(\n                        visible = showBottomNavBar,\n                        enter = fadeIn() + slideInVertically { fullHeight -> fullHeight },\n                        exit = fadeOut() + slideOutVertically { fullHeight -> fullHeight }\n                    ) {\n                        GlassmorphicBottomNavBar(\n                            currentRoute = currentRoute,\n                            onNavigate = { newRoute ->\n                                navController.navigate(newRoute) {\n                                    popUpTo(Screen.Home.route) { saveState = true }\n                                    launchSingleTop = true\n                                    restoreState = true\n                                }\n                            }\n                        )\n                    }\n                }\n            }\n        ) { innerPadding ->\n            NavHost(\n                navController = navController,\n                startDestination = Screen.Splash.route,\n                modifier = Modifier\n                    .fillMaxSize()\n                    .padding(innerPadding)\n            ) {'''
+# ══════════════════════════════════════════════════════════════════════════════
+# 1. APP ICON — proper viewport, no <group> transform needed
+#    Use viewportWidth/Height = 24 and let the adaptive icon system scale it.
+#    The Mosque path is defined in a 24x24 viewport — just set the canvas to
+#    108x108 but keep viewport 24x24 so it fills perfectly centred.
+# ══════════════════════════════════════════════════════════════════════════════
+write_res("ic_launcher_foreground.xml", '''\
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Material Icons "Mosque" — Apache License 2.0
+    viewport 24x24 fills the adaptive icon safe zone automatically
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M21.32,9.55C21.76,9.39 22,8.92 21.84,8.48C21.47,7.5 20.61,6.76 19.57,6.54L19,6.42V6C19,4.9 18.1,4 17,4C15.9,4 15,4.9 15,6V6.42L14.43,6.54C13.39,6.76 12.53,7.5 12.16,8.48C12,8.92 12.24,9.39 12.68,9.55L14,10.05V11H10V10.05L11.32,9.55C11.76,9.39 12,8.92 11.84,8.48C11.47,7.5 10.61,6.76 9.57,6.54L9,6.42V6C9,4.9 8.1,4 7,4C5.9,4 5,4.9 5,6V6.42L4.43,6.54C3.39,6.76 2.53,7.5 2.16,8.48C2,8.92 2.24,9.39 2.68,9.55L4,10.05V11H2V13H4V20H2V22H22V20H20V13H22V11H20V10.05L21.32,9.55ZM10,20H7V17C7,15.9 7.9,15 9,15H10V20ZM13,20H11V15H13V20ZM17,20H14V15H15C16.1,15 17,15.9 17,17V20Z"/>
+</vector>
+''')
 
-new_scaffold = '''\
-    Box(\n        modifier = Modifier\n            .fillMaxSize()\n            .background(DeepNavy)\n    ) {\n        // Scaffold with NO bottomBar — navbar is overlaid as a floating Box below\n        Scaffold(\n            modifier = Modifier.fillMaxSize(),\n            containerColor = Color.Transparent,\n            bottomBar = {}\n        ) { innerPadding ->\n            NavHost(\n                navController = navController,\n                startDestination = Screen.Splash.route,\n                modifier = Modifier\n                    .fillMaxSize()\n                    // Don't use innerPadding — we overlay the navbar manually\n            ) {'''
+write_res("ic_launcher_background.xml", '''\
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#0D2233"/>
+</shape>
+''')
 
-if old_scaffold in s:
-    s = s.replace(old_scaffold, new_scaffold, 1)
-    print("  \u2713 Scaffold bottomBar removed")
+adaptive_xml = '''\
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>
+'''
+for density in ["mipmap-hdpi","mipmap-mdpi","mipmap-xhdpi","mipmap-xxhdpi","mipmap-xxxhdpi"]:
+    for icon_name in ["ic_launcher.xml","ic_launcher_round.xml"]:
+        p = os.path.join(RES, density, icon_name)
+        with open(p, "w", encoding="utf-8", newline="\n") as f:
+            f.write(adaptive_xml)
+print("  \u2713 mipmap-*/ic_launcher*.xml")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 2. DhikrScreen — remove icon boxes, keep only app name + switch
+#    (still the original emoji version on user's machine)
+# ══════════════════════════════════════════════════════════════════════════════
+dhikr_path = os.path.join(SRC, "ui","screens","dhikr","DhikrScreen.kt")
+with open(dhikr_path, encoding="utf-8") as f:
+    dhikr = f.read()
+
+# Replace the inner Row that has [Box(emoji) + Text(name)] with just Text(name)
+old_icon_row = '''\
+                                            Row(verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                Box(modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+                                                    .background(if (isLocked) PrimaryBlue.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f)),
+                                                    contentAlignment = Alignment.Center) {
+                                                    Text(app.emoji, fontSize = 18.sp)
+                                                }
+                                                Text(app.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White)
+                                            }'''
+
+new_icon_row = '''\
+                                            Row(verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                Text(app.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White)
+                                            }'''
+
+if old_icon_row in dhikr:
+    dhikr = dhikr.replace(old_icon_row, new_icon_row, 1)
+    print("  \u2713 DhikrScreen icon boxes removed")
 else:
-    # Fallback: use regex to do the same replacement more flexibly
-    import re
+    # Regex fallback — match any version of the emoji box
     pattern = re.compile(
-        r'(Scaffold\s*\(\s*\n\s*modifier = Modifier\.fillMaxSize\(\),\s*\n\s*containerColor = Color\.Transparent,\s*\n\s*bottomBar = \{).*?(\} // end bottomBar\s*\n\s*\) \{ innerPadding ->)',
+        r'Row\(verticalAlignment = Alignment\.CenterVertically,\s*\n'
+        r'\s*horizontalArrangement = Arrangement\.spacedBy\(12\.dp\)\) \{\s*\n'
+        r'\s*Box\(modifier = Modifier\.size\(36\.dp\).*?Text\(app\.emoji.*?\)\s*\n'
+        r'\s*\}\s*\n'
+        r'\s*Text\(app\.name(.*?)\)\s*\n'
+        r'\s*\}',
         re.DOTALL
     )
-    # Just zero out the bottomBar content
-    s = re.sub(
-        r'bottomBar = \{[^}]*if \(showBottomNavBar\).*?}\s*\n\s*\}',
-        'bottomBar = {}',
-        s,
-        count=1,
-        flags=re.DOTALL
-    )
-    # Remove .padding(innerPadding) from NavHost modifier so content goes full height
-    s = s.replace(
-        '.padding(innerPadding)',
-        '// padding handled by overlaid navbar'
-    )
-    print("  \u2713 Scaffold bottomBar zeroed out (fallback regex)")
+    def replace_row(m):
+        name_args = m.group(1)
+        return (
+            f'Row(verticalAlignment = Alignment.CenterVertically,\n'
+            f'                                                horizontalArrangement = Arrangement.spacedBy(12.dp)) {{\n'
+            f'                                                Text(app.name{name_args})\n'
+            f'                                            }}'
+        )
+    dhikr, n = pattern.subn(replace_row, dhikr, count=1)
+    print(f"  {'✓' if n else '!'} DhikrScreen icon boxes removed (regex, {n} match)")
 
-# Now add the floating navbar overlay — insert it just before the closing of the outer Box
-# We look for the closing of the Scaffold and add our overlay after it
-# Pattern: find "} // end Scaffold" or just the last closing braces of the Scaffold block
-# Strategy: add the overlay Box right after the Scaffold's closing brace, before the outer Box closes
+with open(dhikr_path, "w", encoding="utf-8", newline="\n") as f:
+    f.write(dhikr)
+print("  \u2713 DhikrScreen.kt saved")
 
-# Find the innerPadding block closing and add overlay after Scaffold closes
-# We insert the overlay Box as a sibling in the outer Box, after Scaffold
-navbar_overlay = '''
-
-        // ── Floating navbar overlay — sits above content, transparent corners ──
-        AnimatedVisibility(
-            visible = showBottomNavBar,
-            enter = fadeIn() + slideInVertically { it },
-            exit  = fadeOut() + slideOutVertically { it },
-            modifier = Modifier.align(Alignment.BottomCenter)
-        ) {
-            GlassmorphicBottomNavBar(
-                currentRoute = currentRoute,
-                onNavigate = { newRoute ->
-                    navController.navigate(newRoute) {
-                        popUpTo(Screen.Home.route) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                }
-            )
-        }
-    } // outer Box
-}'''
-
-# Remove the existing last two closing braces ("    }\n}" = outer Box + setContent)
-# and replace with the overlay + proper close
-if "    } // outer Box\n}" not in s:
-    # Replace the last `    }\n}` in the file
-    last_close = s.rfind("\n    }\n}")
-    if last_close != -1:
-        s = s[:last_close] + navbar_overlay
-        print("  \u2713 Navbar overlay Box injected")
-    else:
-        print("  ! Could not find insertion point for overlay")
-else:
-    print("  ! already patched")
-
-with open(path, "w", encoding="utf-8", newline="\n") as f:
-    f.write(s)
-print("  \u2713 MainActivity.kt saved")
-
-# ── BottomNavBar.kt — ensure background is truly transparent outside the shape
-# The fix: don't set any background on the outer Box — let the clip handle it.
-# Also add windowInsets handling so it doesn't add extra space.
-
-navbar_path = os.path.join(SRC, "ui","components","BottomNavBar.kt")
-with open(navbar_path, encoding="utf-8") as f:
-    nb = f.read()
-
-# Remove any fillMaxWidth background on the outer Box that could bleed outside clip
-# The shadow + clip + background chain is correct — but make sure there's no
-# extra Modifier.background() call outside the clip
-# Also: remove navigationBarsPadding from the Box itself — handle it inside the shape
-# so the shape boundary = the visible area, nothing outside it
-
-# Fix: the navigationBarsPadding should pad the CONTENT inside, not expand the clipped Box
-# Replace: .navigationBarsPadding().height(72.dp)
-# With:    .height(72.dp) and add navigationBarsPadding inside the Row
-
-nb = nb.replace(
-    "            .navigationBarsPadding()\n            .height(72.dp)",
-    "            .height(72.dp)"
+# ══════════════════════════════════════════════════════════════════════════════
+# 3. BottomNavBar — increase height from 72dp to 84dp for more top breathing room
+# ══════════════════════════════════════════════════════════════════════════════
+patch_src(
+    "ui/components/BottomNavBar.kt",
+    "            .height(72.dp)",
+    "            .height(84.dp)",
+    "height 72→84"
 )
-
-# Add navigationBarsPadding to the Row content instead
-nb = nb.replace(
-    "        Row(\n            modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),",
-    "        Row(\n            modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(horizontal = 4.dp),"
-)
-
-with open(navbar_path, "w", encoding="utf-8", newline="\n") as f:
-    f.write(nb)
-print("  \u2713 BottomNavBar.kt (nav padding moved inside shape)")
 
 print()
 print("Done! Run:")
 print("  git add .")
-print("  git commit -m \"fix: floating navbar, no dark corners, proper overlay\"")
+print("  git commit -m \"fix: app icon viewport, remove icon boxes, taller navbar\"")
 print("  git push")
 print("  cd Sujood && ./gradlew assembleDebug")
