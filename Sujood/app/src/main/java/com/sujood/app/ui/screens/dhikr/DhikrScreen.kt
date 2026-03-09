@@ -325,7 +325,7 @@ fun DhikrScreen() {
 
 
 @Composable
-private fun AppIconBox(packageName: String, appName: String, brandColor: Long, isLocked: Boolean) {
+private fun AppIconBox(packageName: String, appName: String, brandColor: Long) {
     val context = LocalContext.current
     // Try to get the real installed app icon via PackageManager
     val iconBitmap = remember(packageName) {
