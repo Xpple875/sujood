@@ -181,7 +181,7 @@ fun DhikrScreen() {
                                             horizontalArrangement = Arrangement.SpaceBetween) {
                                             Row(verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                                AppIconBox(app.packageName, app.name, app.brandColor, isLocked)
+                                                AppIconBox(app.packageName, app.name, app.brandColor)
                                                 Text(app.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White)
                                             }
                                             Switch(checked = isLocked,

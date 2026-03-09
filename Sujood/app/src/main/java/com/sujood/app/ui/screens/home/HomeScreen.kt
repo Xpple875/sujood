@@ -26,6 +26,12 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material.icons.outlined.WbTwilight
+import androidx.compose.material.icons.outlined.Nightlight
+import androidx.compose.material.icons.outlined.NightsStay
+import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.Mosque
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -413,12 +419,17 @@ private fun PrayerRow(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            // ── Sleek Canvas icon — no emoji, no stock Android icons ──
-            Box(modifier = Modifier.size(42.dp).clip(CircleShape).background(iconBg),
+            Box(modifier = Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(iconBg),
                 contentAlignment = Alignment.Center) {
-                Canvas(modifier = Modifier.size(22.dp)) {
-                    drawPrayerIcon(prayerTime.prayer, iconTint)
+                val prayerIcon = when (prayerTime.prayer) {
+                    Prayer.FAJR    -> androidx.compose.material.icons.outlined.WbTwilight
+                    Prayer.DHUHR   -> androidx.compose.material.icons.outlined.LightMode
+                    Prayer.ASR     -> androidx.compose.material.icons.outlined.WbSunny
+                    Prayer.MAGHRIB -> androidx.compose.material.icons.outlined.Nightlight
+                    Prayer.ISHA    -> androidx.compose.material.icons.outlined.NightsStay
                 }
+                Icon(imageVector = prayerIcon, contentDescription = prayerTime.prayer.displayName,
+                    tint = iconTint, modifier = Modifier.size(24.dp))
             }
             Column {
                 Text(text = prayerTime.prayer.displayName,
@@ -453,79 +464,6 @@ private fun PrayerRow(
     }
 }
 
-/** Canvas-drawn Iconly-style icons for each prayer. No emoji, no Android icons. */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPrayerIcon(prayer: Prayer, tint: Color) {
-    val w = size.width; val h = size.height; val sw = w * 0.09f
-
-    when (prayer) {
-        Prayer.FAJR -> {
-            // Half-sun rising over horizon line
-            val cx = w / 2f; val cy = h * 0.58f; val r = w * 0.28f
-            drawArc(color = tint, startAngle = 180f, sweepAngle = 180f, useCenter = false,
-                topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
-                style = Stroke(width = sw, cap = StrokeCap.Round))
-            drawLine(tint, Offset(0f, cy), Offset(w, cy), strokeWidth = sw, cap = StrokeCap.Round)
-            // Rays above
-            listOf(-45f, 0f, 45f).forEach { angle ->
-                val rad = Math.toRadians(angle.toDouble() - 90)
-                drawLine(tint,
-                    Offset(cx + (r + w*0.05f)*cos(rad).toFloat(), cy + (r + h*0.05f)*sin(rad).toFloat()),
-                    Offset(cx + (r + w*0.20f)*cos(rad).toFloat(), cy + (r + h*0.20f)*sin(rad).toFloat()),
-                    strokeWidth = sw * 0.8f, cap = StrokeCap.Round)
-            }
-        }
-        Prayer.DHUHR -> {
-            // Full sun with rays (midday)
-            val cx = w / 2f; val cy = h / 2f; val r = w * 0.22f
-            drawCircle(color = tint, radius = r, center = Offset(cx, cy), style = Stroke(width = sw))
-            listOf(0f, 45f, 90f, 135f, 180f, 225f, 270f, 315f).forEach { angle ->
-                val rad = Math.toRadians(angle.toDouble())
-                drawLine(tint,
-                    Offset(cx + (r + w*0.06f)*cos(rad).toFloat(), cy + (r + h*0.06f)*sin(rad).toFloat()),
-                    Offset(cx + (r + w*0.18f)*cos(rad).toFloat(), cy + (r + h*0.18f)*sin(rad).toFloat()),
-                    strokeWidth = sw * 0.8f, cap = StrokeCap.Round)
-            }
-        }
-        Prayer.ASR -> {
-            // Afternoon sun — same as Dhuhr but with Asr warm-amber colours
-            val cx = w / 2f; val cy = h / 2f; val r = w * 0.22f
-            drawCircle(color = tint, radius = r, center = Offset(cx, cy), style = Stroke(width = sw))
-            listOf(0f, 45f, 90f, 135f, 180f, 225f, 270f, 315f).forEach { angle ->
-                val rad = Math.toRadians(angle.toDouble())
-                drawLine(tint,
-                    Offset(cx + (r + w*0.06f)*cos(rad).toFloat(), cy + (r + h*0.06f)*sin(rad).toFloat()),
-                    Offset(cx + (r + w*0.18f)*cos(rad).toFloat(), cy + (r + h*0.18f)*sin(rad).toFloat()),
-                    strokeWidth = sw * 0.8f, cap = StrokeCap.Round)
-            }
-        }
-        Prayer.MAGHRIB -> {
-            // Setting sun — same arc as Fajr but with Maghrib coral-red colours
-            val cx = w / 2f; val cy = h * 0.58f; val r = w * 0.28f
-            drawArc(color = tint, startAngle = 180f, sweepAngle = 180f, useCenter = false,
-                topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
-                style = Stroke(width = sw, cap = StrokeCap.Round))
-            drawLine(tint, Offset(0f, cy), Offset(w, cy), strokeWidth = sw, cap = StrokeCap.Round)
-            // Rays above
-            listOf(-45f, 0f, 45f).forEach { angle ->
-                val rad = Math.toRadians(angle.toDouble() - 90)
-                drawLine(tint,
-                    Offset(cx + (r + w*0.05f)*cos(rad).toFloat(), cy + (r + h*0.05f)*sin(rad).toFloat()),
-                    Offset(cx + (r + w*0.20f)*cos(rad).toFloat(), cy + (r + h*0.20f)*sin(rad).toFloat()),
-                    strokeWidth = sw * 0.8f, cap = StrokeCap.Round)
-            }
-        }
-        Prayer.ISHA -> {
-            // Moon + small star
-            val cx = w * 0.48f; val cy = h * 0.52f; val r = w * 0.28f
-            drawArc(color = tint, startAngle = 40f, sweepAngle = 280f, useCenter = false,
-                topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
-                style = Stroke(width = sw, cap = StrokeCap.Round))
-            // Small star top-right
-            drawCircle(color = tint, radius = w * 0.07f,
-                center = Offset(w * 0.80f, h * 0.22f))
-        }
-    }
-}
 
 private fun getDayProgress(timestamp: Long): Float {
     val calendar = Calendar.getInstance().apply { timeInMillis = timestamp }

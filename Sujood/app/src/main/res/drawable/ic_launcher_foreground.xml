@@ -1,44 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Sujood app icon foreground: white onion dome + crescent on teal bg -->
+<!-- App icon foreground: Mosque icon from Material Icons (Apache 2.0 licensed) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-
+    android:viewportWidth="24"
+    android:viewportHeight="24">
     <!--
-        Onion dome shape: starts wide at base (y=76), curves in,
-        then bulges out (the "onion" belly), tapers to a thin neck,
-        then ends at a pointed finial tip (y=28).
-        Drawn as a single filled path.
+        Material Icons "Mosque" path (Apache License 2.0 — free to use commercially)
+        Source: https://fonts.google.com/icons?icon.query=mosque
     -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="
-            M54,28
-            C54,28 52,30 51,32
-            C50,34 51,36 54,38
-            C57,36 58,34 57,32
-            C56,30 54,28 54,28 Z
-
-            M54,38
-            C50,38 44,42 40,50
-            C36,58 35,64 35,68
-            C35,70 36,72 38,73
-            L70,73
-            C72,72 73,70 73,68
-            C73,64 72,58 68,50
-            C64,42 58,38 54,38 Z
-        "/>
-
-    <!-- Crescent moon above the finial -->
-    <!-- Outer circle of crescent -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,18 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0"/>
-    <!-- Inner cutout to form crescent (background colour = #0D2233) -->
-    <path
-        android:fillColor="#0D2233"
-        android:pathData="M56.5,16 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0"/>
-
+        android:pathData="M21.32,9.55C21.76,9.39 22,8.92 21.84,8.48C21.47,7.5 20.61,6.76 19.57,6.54L19,6.42V6C19,4.9 18.1,4 17,4C15.9,4 15,4.9 15,6V6.42L14.43,6.54C13.39,6.76 12.53,7.5 12.16,8.48C12,8.92 12.24,9.39 12.68,9.55L14,10.05V11H10V10.05L11.32,9.55C11.76,9.39 12,8.92 11.84,8.48C11.47,7.5 10.61,6.76 9.57,6.54L9,6.42V6C9,4.9 8.1,4 7,4C5.9,4 5,4.9 5,6V6.42L4.43,6.54C3.39,6.76 2.53,7.5 2.16,8.48C2,8.92 2.24,9.39 2.68,9.55L4,10.05V11H2V13H4V20H2V22H22V20H20V13H22V11H20V10.05L21.32,9.55ZM10,20H7V17C7,15.9 7.9,15 9,15H10V20ZM13,20H11V15H13V20ZM17,20H14V15H15C16.1,15 17,15.9 17,17V20Z"/>
 </vector>
