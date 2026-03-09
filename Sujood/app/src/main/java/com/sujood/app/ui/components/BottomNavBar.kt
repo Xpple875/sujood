@@ -1,38 +1,21 @@
 package com.sujood.app.ui.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -40,11 +23,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sujood.app.domain.model.BottomNavItem
-import com.sujood.app.ui.theme.GlassBorder
-import com.sujood.app.ui.theme.MidnightBlue
 
-// Primary blue to match the app accent colour
-private val PrimaryBlue = Color(0xFF1132D4)
+private val PrimaryBlue  = Color(0xFF1132D4)
+private val NavBg        = Color(0xFF0D1120)
+private val NavBgLight   = Color(0xFF141829)
 
 @Composable
 fun GlassmorphicBottomNavBar(
@@ -60,50 +42,50 @@ fun GlassmorphicBottomNavBar(
         BottomNavItem.Settings
     )
 
+    // Floating pill with rounded top corners only
+    val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .shadow(
+                elevation = 32.dp,
+                shape = shape,
+                spotColor = PrimaryBlue.copy(alpha = 0.25f),
+                ambientColor = PrimaryBlue.copy(alpha = 0.1f)
+            )
+            .clip(shape)
             .background(
                 brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color.White.copy(alpha = 0.05f),
-                        MidnightBlue.copy(alpha = 0.7f),
-                        MidnightBlue.copy(alpha = 0.9f)
-                    )
+                    colors = listOf(NavBgLight, NavBg)
                 )
             )
-            .height(84.dp)
-            .navigationBarsPadding()
-    ) {
-        // Hair-line top border
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(0.5.dp)
-                .align(Alignment.TopCenter)
-                .background(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.White.copy(alpha = 0.4f),
-                            Color.Transparent
-                        )
+            .border(
+                width = 1.dp,
+                brush = Brush.horizontalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        Color.White.copy(alpha = 0.12f),
+                        Color.White.copy(alpha = 0.06f),
+                        Color.Transparent
                     )
-                )
-        )
-
+                ),
+                shape = shape
+            )
+            .navigationBarsPadding()
+            .height(72.dp)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEach { item ->
-                val isSelected = currentRoute == item.route
                 NavItem(
                     item = item,
-                    isSelected = isSelected,
+                    isSelected = currentRoute == item.route,
                     onClick = { onNavigate(item.route) }
                 )
             }
@@ -117,72 +99,84 @@ private fun NavItem(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.1f else 1f,
+    val iconScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.15f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
+            stiffness = Spring.StiffnessMedium
         ),
         label = "scale"
     )
-
-    val color by animateColorAsState(
-        targetValue = if (isSelected) PrimaryBlue else Color.White.copy(alpha = 0.4f),
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
+    val iconColor by animateColorAsState(
+        targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.38f),
+        animationSpec = tween(200),
         label = "color"
+    )
+    val labelColor by animateColorAsState(
+        targetValue = if (isSelected) PrimaryBlue else Color.White.copy(alpha = 0.38f),
+        animationSpec = tween(200),
+        label = "labelColor"
+    )
+    val glowAlpha by animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0f,
+        animationSpec = tween(250),
+        label = "glow"
     )
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
         modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick
             )
-            .padding(8.dp)
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(40.dp)
-                .scale(scale)
-                .then(
-                    if (isSelected) {
-                        Modifier.background(
-                            color = PrimaryBlue.copy(alpha = 0.15f),
-                            shape = CircleShape
+        // Icon with glow pill behind it when selected
+        Box(contentAlignment = Alignment.Center) {
+            // Glow pill background
+            if (glowAlpha > 0f) {
+                Box(
+                    modifier = Modifier
+                        .size(width = 52.dp, height = 34.dp)
+                        .clip(RoundedCornerShape(17.dp))
+                        .background(PrimaryBlue.copy(alpha = 0.18f * glowAlpha))
+                        .border(
+                            1.dp,
+                            PrimaryBlue.copy(alpha = 0.30f * glowAlpha),
+                            RoundedCornerShape(17.dp)
                         )
-                    } else Modifier
                 )
-        ) {
+            }
             Icon(
-                imageVector = getIconForItem(item),
+                imageVector = navIcon(item, isSelected),
                 contentDescription = item.title,
-                tint = color,
-                modifier = Modifier.size(24.dp)
+                tint = iconColor,
+                modifier = Modifier
+                    .size(24.dp)
+                    .graphicsLayer { scaleX = iconScale; scaleY = iconScale }
             )
         }
 
+        Spacer(Modifier.height(4.dp))
+
         Text(
-            text = item.title,
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-            fontSize = 10.sp
+            text = item.title.uppercase(),
+            color = labelColor,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            fontSize = 9.sp,
+            letterSpacing = 0.8.sp
         )
     }
 }
 
-private fun getIconForItem(item: BottomNavItem): ImageVector {
-    return when (item) {
-        BottomNavItem.Home     -> Icons.Default.Home
-        BottomNavItem.Dhikr   -> Icons.Default.Lock
-        BottomNavItem.Qibla   -> Icons.Default.Explore
-        BottomNavItem.Insights -> Icons.Default.BarChart
-        BottomNavItem.Settings -> Icons.Default.Settings
-    }
+private fun navIcon(item: BottomNavItem, selected: Boolean): ImageVector = when (item) {
+    BottomNavItem.Home      -> if (selected) Icons.Filled.Home      else Icons.Filled.Home
+    BottomNavItem.Dhikr     -> if (selected) Icons.Filled.Lock      else Icons.Filled.Lock
+    BottomNavItem.Qibla     -> if (selected) Icons.Filled.Explore   else Icons.Filled.Explore
+    BottomNavItem.Insights  -> if (selected) Icons.Filled.TrendingUp else Icons.Filled.TrendingUp
+    BottomNavItem.Settings  -> if (selected) Icons.Filled.Settings  else Icons.Filled.Settings
 }

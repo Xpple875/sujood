@@ -422,11 +422,11 @@ private fun PrayerRow(
                 contentAlignment = Alignment.Center) {
                 // Material Icons Extended — guaranteed available in Compose 1.6 / BOM 2024.02
                 val prayerIcon = when (prayerTime.prayer) {
-                    Prayer.FAJR    -> Icons.Filled.Flare          // sunrise burst
-                    Prayer.DHUHR   -> Icons.Filled.WbSunny        // full sun
-                    Prayer.ASR     -> Icons.Filled.WbSunny        // afternoon sun
-                    Prayer.MAGHRIB -> Icons.Filled.Brightness3    // crescent setting
-                    Prayer.ISHA    -> Icons.Filled.NightlightRound // night crescent
+                    Prayer.FAJR    -> Icons.Filled.Flare
+                    Prayer.DHUHR   -> Icons.Filled.WbSunny
+                    Prayer.ASR     -> Icons.Filled.WbSunny
+                    Prayer.MAGHRIB -> Icons.Filled.Brightness3
+                    Prayer.ISHA    -> Icons.Filled.NightlightRound
                 }
                 Icon(imageVector = prayerIcon, contentDescription = prayerTime.prayer.displayName,
                     tint = iconTint, modifier = Modifier.size(24.dp))
