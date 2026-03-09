@@ -1,59 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Original minimalist mosque icon — no attribution needed -->
+<!-- Sujood app icon foreground: white onion dome + crescent on teal bg -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Central dome: filled semicircle on a rectangular base -->
-    <!-- Dome top arc -->
+    <!--
+        Onion dome shape: starts wide at base (y=76), curves in,
+        then bulges out (the "onion" belly), tapers to a thin neck,
+        then ends at a pointed finial tip (y=28).
+        Drawn as a single filled path.
+    -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,22 C43,22 34,30 34,40 L74,40 C74,30 65,22 54,22 Z"/>
+        android:pathData="
+            M54,28
+            C54,28 52,30 51,32
+            C50,34 51,36 54,38
+            C57,36 58,34 57,32
+            C56,30 54,28 54,28 Z
 
-    <!-- Dome base / main hall -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M30,40 L78,40 L78,72 L30,72 Z"/>
+            M54,38
+            C50,38 44,42 40,50
+            C36,58 35,64 35,68
+            C35,70 36,72 38,73
+            L70,73
+            C72,72 73,70 73,68
+            C73,64 72,58 68,50
+            C64,42 58,38 54,38 Z
+        "/>
 
-    <!-- Arched doorway cutout (background colour #101322) -->
-    <path
-        android:fillColor="#101322"
-        android:pathData="M47,72 L47,56 C47,52.7 50.1,50 54,50 C57.9,50 61,52.7 61,56 L61,72 Z"/>
-    <path
-        android:fillColor="#101322"
-        android:pathData="M54,44 C50.1,44 47,47.1 47,51 C47,55 50.1,56 54,56 C57.9,56 61,55 61,51 C61,47.1 57.9,44 54,44 Z"/>
-
-    <!-- Left minaret -->
+    <!-- Crescent moon above the finial -->
+    <!-- Outer circle of crescent -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M26,72 L32,72 L32,38 L28,35 L24,38 L24,72 Z"/>
-    <!-- Left minaret cap dome -->
+        android:pathData="M54,18 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0"/>
+    <!-- Inner cutout to form crescent (background colour = #0D2233) -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M28,28 C25.8,28 24,30 24,32.5 L32,32.5 C32,30 30.2,28 28,28 Z"/>
-
-    <!-- Right minaret -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M76,72 L82,72 L82,38 L80,35 L76,38 Z"/>
-    <!-- Right minaret cap dome -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M79,28 C76.8,28 75,30 75,32.5 L83,32.5 C83,30 81.2,28 79,28 Z"/>
-
-    <!-- Crescent on dome tip -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,14 C51.5,14 50,15.8 50,18 C50,20.2 51.5,22 54,22 C56.5,22 58,20.2 58,18 C58,15.8 56.5,14 54,14 Z"/>
-    <path
-        android:fillColor="#101322"
-        android:pathData="M56,13 C53.5,13 52,14.8 52,17 C52,19.2 53.5,21 56,21 C58.5,21 60,19.2 60,17 C60,14.8 58.5,13 56,13 Z"/>
-
-    <!-- Ground line -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M20,72 L88,72 L88,76 L20,76 Z"/>
+        android:fillColor="#0D2233"
+        android:pathData="M56.5,16 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0"/>
 
 </vector>

@@ -487,36 +487,32 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPrayerIcon(pray
             }
         }
         Prayer.ASR -> {
-            // Afternoon sun: partly below horizon, warm amber rays fanning upward only
-            val cx = w / 2f; val cy = h * 0.63f; val r = w * 0.26f
-            // Subtle filled glow
-            drawCircle(color = tint.copy(alpha = 0.18f), radius = r * 1.3f, center = Offset(cx, cy))
-            // Sun disc
-            drawCircle(color = tint, radius = r, center = Offset(cx, cy))
-            // Horizon line through sun
-            drawLine(tint, Offset(0f, cy - r * 0.1f), Offset(w, cy - r * 0.1f),
-                strokeWidth = sw * 0.6f, cap = StrokeCap.Round)
-            // 5 rays fanning upward from sun
-            listOf(-50f, -25f, 0f, 25f, 50f).forEach { angle ->
-                val rad = Math.toRadians(angle.toDouble() - 90.0)
+            // Afternoon sun — same as Dhuhr but with Asr warm-amber colours
+            val cx = w / 2f; val cy = h / 2f; val r = w * 0.22f
+            drawCircle(color = tint, radius = r, center = Offset(cx, cy), style = Stroke(width = sw))
+            listOf(0f, 45f, 90f, 135f, 180f, 225f, 270f, 315f).forEach { angle ->
+                val rad = Math.toRadians(angle.toDouble())
                 drawLine(tint,
-                    Offset(cx + (r + w*0.05f)*cos(rad).toFloat(), cy + (r + h*0.05f)*sin(rad).toFloat()),
+                    Offset(cx + (r + w*0.06f)*cos(rad).toFloat(), cy + (r + h*0.06f)*sin(rad).toFloat()),
                     Offset(cx + (r + w*0.18f)*cos(rad).toFloat(), cy + (r + h*0.18f)*sin(rad).toFloat()),
-                    strokeWidth = sw * 0.75f, cap = StrokeCap.Round)
+                    strokeWidth = sw * 0.8f, cap = StrokeCap.Round)
             }
         }
         Prayer.MAGHRIB -> {
-            // Proper crescent: filled moon circle minus offset cutout, all via Path
-            val cx = w * 0.50f; val cy = h * 0.50f; val r = w * 0.30f
-            val cutX = cx + r * 0.36f; val cutY = cy - r * 0.06f; val cutR = r * 0.80f
-            // We draw the full disc first
-            drawCircle(color = tint, radius = r, center = Offset(cx, cy))
-            // Then overdraw the cutout using the exact card background colour for this prayer
-            // (Color(0xFF4C0519) is the Maghrib card bg — same as `iconBg` in PrayerRow)
-            drawCircle(color = Color(0xFF4C0519), radius = cutR, center = Offset(cutX, cutY))
-            // Thin rim so the shape reads clearly at small sizes
-            drawCircle(color = tint, radius = r, center = Offset(cx, cy),
-                style = Stroke(width = sw * 0.5f))
+            // Setting sun — same arc as Fajr but with Maghrib coral-red colours
+            val cx = w / 2f; val cy = h * 0.58f; val r = w * 0.28f
+            drawArc(color = tint, startAngle = 180f, sweepAngle = 180f, useCenter = false,
+                topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
+                style = Stroke(width = sw, cap = StrokeCap.Round))
+            drawLine(tint, Offset(0f, cy), Offset(w, cy), strokeWidth = sw, cap = StrokeCap.Round)
+            // Rays above
+            listOf(-45f, 0f, 45f).forEach { angle ->
+                val rad = Math.toRadians(angle.toDouble() - 90)
+                drawLine(tint,
+                    Offset(cx + (r + w*0.05f)*cos(rad).toFloat(), cy + (r + h*0.05f)*sin(rad).toFloat()),
+                    Offset(cx + (r + w*0.20f)*cos(rad).toFloat(), cy + (r + h*0.20f)*sin(rad).toFloat()),
+                    strokeWidth = sw * 0.8f, cap = StrokeCap.Round)
+            }
         }
         Prayer.ISHA -> {
             // Moon + small star
