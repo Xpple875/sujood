@@ -351,8 +351,10 @@ class HomeViewModel(
                 Prayer.ISHA -> settings.ishaNotificationEnabled
             }
         }.toBooleanArray()
+        // prayerLockEnabled is the master toggle — if it's off, no prayer triggers a lock
         val lockEnabled = Prayer.entries.map { prayer ->
-            when (prayer) {
+            if (!settings.prayerLockEnabled) false
+            else when (prayer) {
                 Prayer.FAJR -> settings.fajrLockEnabled
                 Prayer.DHUHR -> settings.dhuhrLockEnabled
                 Prayer.ASR -> settings.asrLockEnabled

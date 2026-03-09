@@ -220,4 +220,10 @@ class UserPreferences(private val context: Context) {
     val userName: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[PreferencesKeys.NAME] ?: ""
     }
+
+    /** Wipes all DataStore preferences — used by Sign Out. */
+    suspend fun clearAllData() {
+        context.dataStore.edit { it.clear() }
+    }
+
 }

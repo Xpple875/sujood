@@ -42,13 +42,13 @@ import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -87,6 +87,10 @@ import com.sujood.app.ui.theme.MidnightBlue
 import com.sujood.app.ui.theme.WarmAmber
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private val BgDark      = Color(0xFF101322)
 private val PrimaryBlue = Color(0xFF1132D4)
@@ -126,7 +130,8 @@ private val ADHAN_OPTIONS = listOf(
 @Composable
 fun SettingsScreen(
     userPreferences: UserPreferences,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onSignOut: () -> Unit = {}
 ) {
     val context  = LocalContext.current
     val settings by userPreferences.userSettings.collectAsState(initial = UserSettings())
@@ -139,16 +144,42 @@ fun SettingsScreen(
     var showLockTriggerDialog  by remember { mutableStateOf(false) }
     var showLockDurationDialog by remember { mutableStateOf(false) }
     var showAdhanDialog        by remember { mutableStateOf(false) }
+    var showSignOutDialog      by remember { mutableStateOf(false) }
     var cacheCleared           by remember { mutableStateOf(false) }
+    var exportStatus           by remember { mutableStateOf("") }
 
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            scope.launch {
-                userPreferences.saveLocationSettings(true, "", "", 0.0, 0.0)
-            }
+            scope.launch { userPreferences.saveLocationSettings(true, "", "", 0.0, 0.0) }
         }
+    }
+
+    // Sign out confirmation dialog
+    if (showSignOutDialog) {
+        AlertDialog(
+            onDismissRequest = { showSignOutDialog = false },
+            title = { Text("Sign Out", color = Color.White) },
+            text  = { Text("This will clear all your preferences and prayer history. Are you sure?",
+                          color = SlateText) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            userPreferences.clearAllData()
+                            showSignOutDialog = false
+                            onSignOut()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
+                ) { Text("Sign Out") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSignOutDialog = false }) { Text("Cancel") }
+            },
+            containerColor = MidnightBlue
+        )
     }
 
     Box(modifier = Modifier.fillMaxSize().background(BgDark)
@@ -350,17 +381,58 @@ fun SettingsScreen(
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                     SettingsRow(icon = Icons.Default.Language, title = "Language",
                         trailing = { Text("English (US)", fontSize = 12.sp, color = SlateText) })
-                    GlassDivider()
-                    SettingsRow(icon = Icons.Default.FileUpload, title = "Data Backup",
-                        trailing = { Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) })
                 }
             }
 
             item { SectionLabel("Data Management") }
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                    SettingsRow(icon = Icons.Default.FileUpload, title = "Export Prayer History",
-                        trailing = { Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) })
+                    // ── Export Prayer History as CSV ────────────────────────
+                    SettingsRow(
+                        icon = Icons.Default.FileUpload,
+                        title = "Export Prayer History",
+                        subtitle = if (exportStatus.isNotEmpty()) exportStatus else "Share as CSV file",
+                        trailing = {
+                            Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(18.dp))
+                        },
+                        onClick = {
+                            scope.launch {
+                                try {
+                                    val app = context.applicationContext as SujoodApplication
+                                    val dao = app.database.prayerLogDao()
+                                    // Collect all logs via a one-shot snapshot
+                                    val logs = kotlinx.coroutines.flow.first(dao.getAllPrayerLogs())
+                                    if (logs.isEmpty()) {
+                                        exportStatus = "No prayer history yet"
+                                        return@launch
+                                    }
+                                    val dateFmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+                                    val sb = StringBuilder("Date,Prayer,Completed At\n")
+                                    logs.sortedByDescending { it.completedAt }.forEach { log ->
+                                        sb.append("${log.date},${log.prayerName},${dateFmt.format(Date(log.completedAt))}\n")
+                                    }
+                                    val fileName = "sujood_prayer_history_${SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())}.csv"
+                                    val file = File(context.cacheDir, fileName)
+                                    file.writeText(sb.toString())
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.provider",
+                                        file
+                                    )
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/csv"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        putExtra(Intent.EXTRA_SUBJECT, "Sujood Prayer History")
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(shareIntent, "Export Prayer History"))
+                                    exportStatus = "Exported ${logs.size} records"
+                                } catch (e: Exception) {
+                                    exportStatus = "Export failed"
+                                }
+                            }
+                        }
+                    )
                     GlassDivider()
                     SettingsRow(icon = Icons.Default.DeleteSweep, title = "Clear Cache",
                         trailing = {
@@ -396,21 +468,24 @@ fun SettingsScreen(
                 }
             }
 
+            // ── Sign Out button ────────────────────────────────────────────
             item {
                 Box(modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp),
                     contentAlignment = Alignment.Center) {
                     Box(modifier = Modifier.clip(CircleShape)
-                        .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.20f), CircleShape)
-                        .background(Color(0xFFEF4444).copy(alpha = 0.05f))
-                        .padding(horizontal = 24.dp, vertical = 10.dp).clickable {}) {
+                        .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.30f), CircleShape)
+                        .background(Color(0xFFEF4444).copy(alpha = 0.08f))
+                        .padding(horizontal = 32.dp, vertical = 12.dp)
+                        .clickable { showSignOutDialog = true }) {
                         Text("Sign Out", fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFFEF4444).copy(alpha = 0.80f))
+                            color = Color(0xFFEF4444).copy(alpha = 0.90f))
                     }
                 }
             }
         }
     }
 
+    // ── Dialogs ───────────────────────────────────────────────────────────
     if (showNameDialog) {
         NameDialog(settings.name, { showNameDialog = false }) { name ->
             scope.launch { userPreferences.saveUserName(name) }; showNameDialog = false
@@ -435,9 +510,7 @@ fun SettingsScreen(
                     if (!granted) {
                         locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                     } else {
-                        scope.launch {
-                            userPreferences.saveLocationSettings(true, "", "", 0.0, 0.0)
-                        }
+                        scope.launch { userPreferences.saveLocationSettings(true, "", "", 0.0, 0.0) }
                     }
                 } else {
                     scope.launch { userPreferences.saveLocationSettings(true, "", "", 0.0, 0.0) }
@@ -467,6 +540,8 @@ fun SettingsScreen(
         )
     }
 }
+
+// ── Shared helpers ────────────────────────────────────────────────────────────
 
 @Composable
 private fun SectionLabel(text: String) {
@@ -515,6 +590,8 @@ private fun SettingsRow(
 private fun blueSwitchColors() = SwitchDefaults.colors(
     checkedThumbColor = Color.White, checkedTrackColor = PrimaryBlue,
     uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF334155))
+
+// ── Dialogs ───────────────────────────────────────────────────────────────────
 
 @Composable
 private fun NameDialog(currentName: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
