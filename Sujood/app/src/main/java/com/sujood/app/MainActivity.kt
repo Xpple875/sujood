@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
@@ -148,36 +149,18 @@ fun SujoodApp(
             .fillMaxSize()
             .background(DeepNavy)
     ) {
+        // Scaffold with NO bottomBar — navbar is overlaid as a floating Box below
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = Color.Transparent,
-            bottomBar = {
-                if (showBottomNavBar) {
-                    AnimatedVisibility(
-                        visible = showBottomNavBar,
-                        enter = fadeIn() + slideInVertically { fullHeight -> fullHeight },
-                        exit = fadeOut() + slideOutVertically { fullHeight -> fullHeight }
-                    ) {
-                        GlassmorphicBottomNavBar(
-                            currentRoute = currentRoute,
-                            onNavigate = { newRoute ->
-                                navController.navigate(newRoute) {
-                                    popUpTo(Screen.Home.route) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        )
-                    }
-                }
-            }
+            bottomBar = {}
         ) { innerPadding ->
             NavHost(
                 navController = navController,
                 startDestination = Screen.Splash.route,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
+                    // Don't use innerPadding — we overlay the navbar manually
             ) {
                 composable(Screen.Splash.route) {
                     // Wait for DataStore to emit before deciding which screen to go to.
@@ -253,5 +236,24 @@ fun SujoodApp(
                 }
             }
         }
-    }
+
+        // ── Floating navbar overlay — sits above content, transparent corners ──
+        AnimatedVisibility(
+            visible = showBottomNavBar,
+            enter = fadeIn() + slideInVertically { it },
+            exit  = fadeOut() + slideOutVertically { it },
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
+            GlassmorphicBottomNavBar(
+                currentRoute = currentRoute,
+                onNavigate = { newRoute ->
+                    navController.navigate(newRoute) {
+                        popUpTo(Screen.Home.route) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            )
+        }
+    } // outer Box
 }

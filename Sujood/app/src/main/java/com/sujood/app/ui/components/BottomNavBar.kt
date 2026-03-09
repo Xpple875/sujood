@@ -66,11 +66,10 @@ fun GlassmorphicBottomNavBar(
                 )),
                 shape = shape
             )
-            .navigationBarsPadding()
             .height(72.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
+            modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
