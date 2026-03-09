@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -24,9 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sujood.app.domain.model.BottomNavItem
 
-private val PrimaryBlue  = Color(0xFF1132D4)
-private val NavBg        = Color(0xFF0D1120)
-private val NavBgLight   = Color(0xFF141829)
+private val PrimaryBlue = Color(0xFF1132D4)
+private val NavBg       = Color(0xFF0D1120)
+private val NavBgLight  = Color(0xFF141829)
 
 @Composable
 fun GlassmorphicBottomNavBar(
@@ -42,7 +43,6 @@ fun GlassmorphicBottomNavBar(
         BottomNavItem.Settings
     )
 
-    // Floating pill with rounded top corners only
     val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 
     Box(
@@ -52,33 +52,25 @@ fun GlassmorphicBottomNavBar(
                 elevation = 32.dp,
                 shape = shape,
                 spotColor = PrimaryBlue.copy(alpha = 0.25f),
-                ambientColor = PrimaryBlue.copy(alpha = 0.1f)
+                ambientColor = PrimaryBlue.copy(alpha = 0.10f)
             )
             .clip(shape)
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(NavBgLight, NavBg)
-                )
-            )
+            .background(Brush.verticalGradient(listOf(NavBgLight, NavBg)))
             .border(
                 width = 1.dp,
-                brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        Color.White.copy(alpha = 0.12f),
-                        Color.White.copy(alpha = 0.06f),
-                        Color.Transparent
-                    )
-                ),
+                brush = Brush.horizontalGradient(listOf(
+                    Color.Transparent,
+                    Color.White.copy(alpha = 0.12f),
+                    Color.White.copy(alpha = 0.06f),
+                    Color.Transparent
+                )),
                 shape = shape
             )
             .navigationBarsPadding()
             .height(72.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 8.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -86,7 +78,8 @@ fun GlassmorphicBottomNavBar(
                 NavItem(
                     item = item,
                     isSelected = currentRoute == item.route,
-                    onClick = { onNavigate(item.route) }
+                    onClick = { onNavigate(item.route) },
+                    modifier = Modifier.weight(1f)   // weight IS valid inside Row scope here
                 )
             }
         }
@@ -94,10 +87,11 @@ fun GlassmorphicBottomNavBar(
 }
 
 @Composable
-private fun NavItem(
+private fun RowScope.NavItem(
     item: BottomNavItem,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val iconScale by animateFloatAsState(
         targetValue = if (isSelected) 1.15f else 1f,
@@ -109,25 +103,21 @@ private fun NavItem(
     )
     val iconColor by animateColorAsState(
         targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.38f),
-        animationSpec = tween(200),
-        label = "color"
+        animationSpec = tween(200), label = "iconColor"
     )
     val labelColor by animateColorAsState(
         targetValue = if (isSelected) PrimaryBlue else Color.White.copy(alpha = 0.38f),
-        animationSpec = tween(200),
-        label = "labelColor"
+        animationSpec = tween(200), label = "labelColor"
     )
     val glowAlpha by animateFloatAsState(
         targetValue = if (isSelected) 1f else 0f,
-        animationSpec = tween(250),
-        label = "glow"
+        animationSpec = tween(250), label = "glow"
     )
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
-        modifier = Modifier
-            .weight(1f)
+        modifier = modifier
             .fillMaxHeight()
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -135,9 +125,8 @@ private fun NavItem(
                 onClick = onClick
             )
     ) {
-        // Icon with glow pill behind it when selected
         Box(contentAlignment = Alignment.Center) {
-            // Glow pill background
+            // Blue pill glow behind selected icon
             if (glowAlpha > 0f) {
                 Box(
                     modifier = Modifier
@@ -151,13 +140,12 @@ private fun NavItem(
                         )
                 )
             }
+            // .scale() instead of graphicsLayer — no extra import needed
             Icon(
-                imageVector = navIcon(item, isSelected),
+                imageVector = navIcon(item),
                 contentDescription = item.title,
                 tint = iconColor,
-                modifier = Modifier
-                    .size(24.dp)
-                    .graphicsLayer { scaleX = iconScale; scaleY = iconScale }
+                modifier = Modifier.size(24.dp).scale(iconScale)
             )
         }
 
@@ -173,10 +161,10 @@ private fun NavItem(
     }
 }
 
-private fun navIcon(item: BottomNavItem, selected: Boolean): ImageVector = when (item) {
-    BottomNavItem.Home      -> if (selected) Icons.Filled.Home      else Icons.Filled.Home
-    BottomNavItem.Dhikr     -> if (selected) Icons.Filled.Lock      else Icons.Filled.Lock
-    BottomNavItem.Qibla     -> if (selected) Icons.Filled.Explore   else Icons.Filled.Explore
-    BottomNavItem.Insights  -> if (selected) Icons.Filled.TrendingUp else Icons.Filled.TrendingUp
-    BottomNavItem.Settings  -> if (selected) Icons.Filled.Settings  else Icons.Filled.Settings
+private fun navIcon(item: BottomNavItem): ImageVector = when (item) {
+    BottomNavItem.Home     -> Icons.Filled.Home
+    BottomNavItem.Dhikr    -> Icons.Filled.Lock
+    BottomNavItem.Qibla    -> Icons.Filled.Explore
+    BottomNavItem.Insights -> Icons.Filled.TrendingUp
+    BottomNavItem.Settings -> Icons.Filled.Settings
 }

@@ -1,10 +1,8 @@
-import os, re
+import os
 
 SRC = os.path.join("Sujood","app","src","main","java","com","sujood","app")
-
-def read(rel):
-    with open(os.path.join(SRC, *rel.split("/")), encoding="utf-8") as f:
-        return f.read()
+RES = os.path.join("Sujood","app","src","main","res")
+DRW = os.path.join(RES, "drawable")
 
 def write(rel, content):
     p = os.path.join(SRC, *rel.split("/"))
@@ -14,13 +12,10 @@ def write(rel, content):
     print(f"  \u2713 {rel}")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 1. BottomNavBar.kt — redesign to match screenshot
-#    - Floating pill shape, rounded top corners only
-#    - Better icons: Home filled, Lock, Compass, Analytics (TrendingUp), Settings
-#    - Blue glow pill under selected icon
-#    - Labels uppercase 9sp
+# 1. BottomNavBar.kt — fix weight(1f) inside Column→ use fillMaxWidth(fraction)
+#    instead, and replace graphicsLayer lambda with .scale() modifier
 # ══════════════════════════════════════════════════════════════════════════════
-navbar = '''\
+write("ui/components/BottomNavBar.kt", '''\
 package com.sujood.app.ui.components
 
 import androidx.compose.animation.animateColorAsState
@@ -38,6 +33,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -47,9 +43,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sujood.app.domain.model.BottomNavItem
 
-private val PrimaryBlue  = Color(0xFF1132D4)
-private val NavBg        = Color(0xFF0D1120)
-private val NavBgLight   = Color(0xFF141829)
+private val PrimaryBlue = Color(0xFF1132D4)
+private val NavBg       = Color(0xFF0D1120)
+private val NavBgLight  = Color(0xFF141829)
 
 @Composable
 fun GlassmorphicBottomNavBar(
@@ -65,7 +61,6 @@ fun GlassmorphicBottomNavBar(
         BottomNavItem.Settings
     )
 
-    // Floating pill with rounded top corners only
     val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 
     Box(
@@ -75,33 +70,25 @@ fun GlassmorphicBottomNavBar(
                 elevation = 32.dp,
                 shape = shape,
                 spotColor = PrimaryBlue.copy(alpha = 0.25f),
-                ambientColor = PrimaryBlue.copy(alpha = 0.1f)
+                ambientColor = PrimaryBlue.copy(alpha = 0.10f)
             )
             .clip(shape)
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(NavBgLight, NavBg)
-                )
-            )
+            .background(Brush.verticalGradient(listOf(NavBgLight, NavBg)))
             .border(
                 width = 1.dp,
-                brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        Color.White.copy(alpha = 0.12f),
-                        Color.White.copy(alpha = 0.06f),
-                        Color.Transparent
-                    )
-                ),
+                brush = Brush.horizontalGradient(listOf(
+                    Color.Transparent,
+                    Color.White.copy(alpha = 0.12f),
+                    Color.White.copy(alpha = 0.06f),
+                    Color.Transparent
+                )),
                 shape = shape
             )
             .navigationBarsPadding()
             .height(72.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 8.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -109,7 +96,8 @@ fun GlassmorphicBottomNavBar(
                 NavItem(
                     item = item,
                     isSelected = currentRoute == item.route,
-                    onClick = { onNavigate(item.route) }
+                    onClick = { onNavigate(item.route) },
+                    modifier = Modifier.weight(1f)   // weight IS valid inside Row scope here
                 )
             }
         }
@@ -117,10 +105,11 @@ fun GlassmorphicBottomNavBar(
 }
 
 @Composable
-private fun NavItem(
+private fun RowScope.NavItem(
     item: BottomNavItem,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val iconScale by animateFloatAsState(
         targetValue = if (isSelected) 1.15f else 1f,
@@ -132,25 +121,21 @@ private fun NavItem(
     )
     val iconColor by animateColorAsState(
         targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.38f),
-        animationSpec = tween(200),
-        label = "color"
+        animationSpec = tween(200), label = "iconColor"
     )
     val labelColor by animateColorAsState(
         targetValue = if (isSelected) PrimaryBlue else Color.White.copy(alpha = 0.38f),
-        animationSpec = tween(200),
-        label = "labelColor"
+        animationSpec = tween(200), label = "labelColor"
     )
     val glowAlpha by animateFloatAsState(
         targetValue = if (isSelected) 1f else 0f,
-        animationSpec = tween(250),
-        label = "glow"
+        animationSpec = tween(250), label = "glow"
     )
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
-        modifier = Modifier
-            .weight(1f)
+        modifier = modifier
             .fillMaxHeight()
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -158,9 +143,8 @@ private fun NavItem(
                 onClick = onClick
             )
     ) {
-        // Icon with glow pill behind it when selected
         Box(contentAlignment = Alignment.Center) {
-            // Glow pill background
+            // Blue pill glow behind selected icon
             if (glowAlpha > 0f) {
                 Box(
                     modifier = Modifier
@@ -174,13 +158,12 @@ private fun NavItem(
                         )
                 )
             }
+            // .scale() instead of graphicsLayer — no extra import needed
             Icon(
-                imageVector = navIcon(item, isSelected),
+                imageVector = navIcon(item),
                 contentDescription = item.title,
                 tint = iconColor,
-                modifier = Modifier
-                    .size(24.dp)
-                    .graphicsLayer { scaleX = iconScale; scaleY = iconScale }
+                modifier = Modifier.size(24.dp).scale(iconScale)
             )
         }
 
@@ -196,200 +179,79 @@ private fun NavItem(
     }
 }
 
-private fun navIcon(item: BottomNavItem, selected: Boolean): ImageVector = when (item) {
-    BottomNavItem.Home      -> if (selected) Icons.Filled.Home      else Icons.Filled.Home
-    BottomNavItem.Dhikr     -> if (selected) Icons.Filled.Lock      else Icons.Filled.Lock
-    BottomNavItem.Qibla     -> if (selected) Icons.Filled.Explore   else Icons.Filled.Explore
-    BottomNavItem.Insights  -> if (selected) Icons.Filled.TrendingUp else Icons.Filled.TrendingUp
-    BottomNavItem.Settings  -> if (selected) Icons.Filled.Settings  else Icons.Filled.Settings
+private fun navIcon(item: BottomNavItem): ImageVector = when (item) {
+    BottomNavItem.Home     -> Icons.Filled.Home
+    BottomNavItem.Dhikr    -> Icons.Filled.Lock
+    BottomNavItem.Qibla    -> Icons.Filled.Explore
+    BottomNavItem.Insights -> Icons.Filled.TrendingUp
+    BottomNavItem.Settings -> Icons.Filled.Settings
 }
+''')
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 2. App icon — use Icons.Filled.Mosque path data (same as splash screen shows)
+#    Apache 2.0 licensed — free for commercial use
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Background: exact teal from the splash/reference image
+with open(os.path.join(DRW, "ic_launcher_background.xml"), "w", encoding="utf-8", newline="\n") as f:
+    f.write('''\
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#0D2233"/>
+</shape>
+''')
+print("  \u2713 drawable/ic_launcher_background.xml")
+
+# Foreground: Mosque icon vector from Material Icons (Apache 2.0)
+# Scaled and centred for adaptive icon safe zone (centred in 108x108 viewport)
+with open(os.path.join(DRW, "ic_launcher_foreground.xml"), "w", encoding="utf-8", newline="\n") as f:
+    f.write('''\
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Material Icons "Mosque" — Apache License 2.0
+    https://fonts.google.com/icons?icon.query=mosque
+    Scaled to fill the adaptive icon safe zone (centred in 108x108dp)
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Translate to centre the 24-unit icon in 108dp canvas, scale 3x -->
+    <group
+        android:translateX="12"
+        android:translateY="20"
+        android:scaleX="3.5"
+        android:scaleY="3.5">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M21.32,9.55C21.76,9.39 22,8.92 21.84,8.48C21.47,7.5 20.61,6.76 19.57,6.54L19,6.42V6C19,4.9 18.1,4 17,4C15.9,4 15,4.9 15,6V6.42L14.43,6.54C13.39,6.76 12.53,7.5 12.16,8.48C12,8.92 12.24,9.39 12.68,9.55L14,10.05V11H10V10.05L11.32,9.55C11.76,9.39 12,8.92 11.84,8.48C11.47,7.5 10.61,6.76 9.57,6.54L9,6.42V6C9,4.9 8.1,4 7,4C5.9,4 5,4.9 5,6V6.42L4.43,6.54C3.39,6.76 2.53,7.5 2.16,8.48C2,8.92 2.24,9.39 2.68,9.55L4,10.05V11H2V13H4V20H2V22H22V20H20V13H22V11H20V10.05L21.32,9.55ZM10,20H7V17C7,15.9 7.9,15 9,15H10V20ZM13,20H11V15H13V20ZM17,20H14V15H15C16.1,15 17,15.9 17,17V20Z"/>
+    </group>
+</vector>
+''')
+print("  \u2713 drawable/ic_launcher_foreground.xml (Mosque icon, Apache 2.0)")
+
+# Update all mipmap adaptive icon XMLs
+adaptive_xml = '''\
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>
 '''
-write("ui/components/BottomNavBar.kt", navbar)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 2. DhikrScreen.kt — full fresh patch: replace emoji AppEntry with
-#    PackageManager real icons. Applied to the ORIGINAL file (emoji version).
-# ══════════════════════════════════════════════════════════════════════════════
-dhikr = read("ui/screens/dhikr/DhikrScreen.kt")
-
-# Step A: add needed imports
-if "import androidx.compose.ui.graphics.asImageBitmap" not in dhikr:
-    dhikr = dhikr.replace(
-        "import com.sujood.app.domain.model.LockMode",
-        "import androidx.compose.ui.graphics.asImageBitmap\n"
-        "import androidx.core.graphics.drawable.toBitmap\n"
-        "import com.sujood.app.domain.model.LockMode"
-    )
-
-# Step B: replace AppEntry data class + COMMON_APPS list (emoji version)
-old_entry = re.compile(
-    r'private data class AppEntry\(val name: String, val packageName: String, val emoji: String\)\s*\n'
-    r'private val COMMON_APPS = listOf\(.*?\)',
-    re.DOTALL
-)
-new_entry = (
-    'private data class AppEntry(val name: String, val packageName: String, val brandColor: Long)\n\n'
-    'private val COMMON_APPS = listOf(\n'
-    '    AppEntry("TikTok",      "com.zhiliaoapp.musically",        0xFF010101),\n'
-    '    AppEntry("Instagram",   "com.instagram.android",           0xFFE1306C),\n'
-    '    AppEntry("YouTube",     "com.google.android.youtube",      0xFFFF0000),\n'
-    '    AppEntry("X / Twitter", "com.twitter.android",             0xFF1A1A1A),\n'
-    '    AppEntry("Snapchat",    "com.snapchat.android",            0xFFFFD000),\n'
-    '    AppEntry("Facebook",    "com.facebook.katana",             0xFF1877F2),\n'
-    '    AppEntry("WhatsApp",    "com.whatsapp",                    0xFF25D366),\n'
-    '    AppEntry("Reddit",      "com.reddit.frontpage",            0xFFFF4500),\n'
-    '    AppEntry("Netflix",     "com.netflix.mediaclient",         0xFFE50914),\n'
-    '    AppEntry("Twitch",      "tv.twitch.android.app",           0xFF9146FF),\n'
-    ')'
-)
-dhikr, n = old_entry.subn(new_entry, dhikr, count=1)
-print(f"  {'✓' if n else '!'} AppEntry replaced ({n} match)")
-
-# Step C: replace the emoji icon Box with AppIconBox call
-# Target the Box(...) { Text(app.emoji...) } pattern
-old_icon_box = re.compile(
-    r'Box\(modifier = Modifier\.size\(36\.dp\)\.clip\(RoundedCornerShape\(10\.dp\)\)\s*'
-    r'\.background\(if \(isLocked\).*?\},\s*'
-    r'contentAlignment = Alignment\.Center\) \{\s*'
-    r'Text\(app\.emoji.*?\)\s*\}',
-    re.DOTALL
-)
-new_icon_box = 'AppIconBox(app.packageName, app.name, app.brandColor)'
-dhikr, n = old_icon_box.subn(new_icon_box, dhikr, count=1)
-print(f"  {'✓' if n else '!'} icon Box replaced ({n} match)")
-
-# Step D: inject AppIconBox composable if not present
-if "fun AppIconBox" not in dhikr:
-    composable = '''
-@Composable
-private fun AppIconBox(packageName: String, appName: String, brandColor: Long) {
-    val context = LocalContext.current
-    val iconBitmap = remember(packageName) {
-        try {
-            val drawable = context.packageManager.getApplicationIcon(packageName)
-            android.graphics.Bitmap.createScaledBitmap(
-                drawable.toBitmap(), 96, 96, true
-            ).asImageBitmap()
-        } catch (e: Exception) { null }
-    }
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(brandColor)),
-        contentAlignment = Alignment.Center
-    ) {
-        if (iconBitmap != null) {
-            androidx.compose.foundation.Image(
-                bitmap = iconBitmap,
-                contentDescription = appName,
-                modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp))
-            )
-        } else {
-            Text(
-                text = appName.first().uppercase(),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (brandColor == 0xFFFFD000L) Color.Black else Color.White
-            )
-        }
-    }
-}
-
-'''
-    dhikr = dhikr.replace(
-        "@Composable\nprivate fun GlassCard(",
-        composable + "@Composable\nprivate fun GlassCard("
-    )
-    print("  \u2713 AppIconBox injected")
-
-write("ui/screens/dhikr/DhikrScreen.kt", dhikr)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 3. HomeScreen.kt — fix icon references (safe icons only)
-# ══════════════════════════════════════════════════════════════════════════════
-home = read("ui/screens/home/HomeScreen.kt")
-
-# Remove any bad outlined imports
-for bad in [
-    "import androidx.compose.material.icons.outlined.WbSunny\n",
-    "import androidx.compose.material.icons.outlined.WbTwilight\n",
-    "import androidx.compose.material.icons.outlined.Nightlight\n",
-    "import androidx.compose.material.icons.outlined.NightsStay\n",
-    "import androidx.compose.material.icons.outlined.LightMode\n",
-    "import androidx.compose.material.icons.outlined.Mosque\n",
-]:
-    home = home.replace(bad, "")
-
-# Add safe icon imports if needed
-if "import androidx.compose.material.icons.filled.WbSunny" not in home:
-    home = home.replace(
-        "import androidx.compose.material.icons.filled.Person",
-        "import androidx.compose.material.icons.filled.Person\n"
-        "import androidx.compose.material.icons.filled.WbSunny\n"
-        "import androidx.compose.material.icons.filled.Brightness3\n"
-        "import androidx.compose.material.icons.filled.NightlightRound\n"
-        "import androidx.compose.material.icons.filled.Flare"
-    )
-
-# Fix the icon when block — replace any version of the qualified/unresolved refs
-icon_when_pattern = re.compile(
-    r'val prayerIcon = when \(prayerTime\.prayer\) \{.*?\}',
-    re.DOTALL
-)
-new_icon_when = (
-    'val prayerIcon = when (prayerTime.prayer) {\n'
-    '                    Prayer.FAJR    -> Icons.Filled.Flare\n'
-    '                    Prayer.DHUHR   -> Icons.Filled.WbSunny\n'
-    '                    Prayer.ASR     -> Icons.Filled.WbSunny\n'
-    '                    Prayer.MAGHRIB -> Icons.Filled.Brightness3\n'
-    '                    Prayer.ISHA    -> Icons.Filled.NightlightRound\n'
-    '                }'
-)
-home, n = icon_when_pattern.subn(new_icon_when, home, count=1)
-print(f"  {'✓' if n else '!'} HomeScreen icon when replaced ({n} match)")
-
-# If the icon box still uses Canvas (original file), replace it
-if "Canvas(modifier = Modifier.size(22.dp))" in home:
-    old_canvas_box = (
-        '            // ── Sleek Canvas icon — no emoji, no stock Android icons ──\n'
-        '            Box(modifier = Modifier.size(42.dp).clip(CircleShape).background(iconBg),\n'
-        '                contentAlignment = Alignment.Center) {\n'
-        '                Canvas(modifier = Modifier.size(22.dp)) {\n'
-        '                    drawPrayerIcon(prayerTime.prayer, iconTint)\n'
-        '                }\n'
-        '            }'
-    )
-    new_icon_box_home = (
-        '            Box(modifier = Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(iconBg),\n'
-        '                contentAlignment = Alignment.Center) {\n'
-        '                val prayerIcon = when (prayerTime.prayer) {\n'
-        '                    Prayer.FAJR    -> Icons.Filled.Flare\n'
-        '                    Prayer.DHUHR   -> Icons.Filled.WbSunny\n'
-        '                    Prayer.ASR     -> Icons.Filled.WbSunny\n'
-        '                    Prayer.MAGHRIB -> Icons.Filled.Brightness3\n'
-        '                    Prayer.ISHA    -> Icons.Filled.NightlightRound\n'
-        '                }\n'
-        '                Icon(imageVector = prayerIcon, contentDescription = prayerTime.prayer.displayName,\n'
-        '                    tint = iconTint, modifier = Modifier.size(24.dp))\n'
-        '            }'
-    )
-    home = home.replace(old_canvas_box, new_icon_box_home, 1)
-    print("  \u2713 HomeScreen Canvas box replaced with Icon")
-
-    # Remove drawPrayerIcon function
-    draw_fn = re.compile(
-        r'\n/\*\* Canvas-drawn.*?^\}\n',
-        re.DOTALL | re.MULTILINE
-    )
-    home = draw_fn.sub("\n", home, count=1)
-    print("  \u2713 HomeScreen drawPrayerIcon function removed")
-
-write("ui/screens/home/HomeScreen.kt", home)
+for density in ["mipmap-hdpi","mipmap-mdpi","mipmap-xhdpi","mipmap-xxhdpi","mipmap-xxxhdpi"]:
+    for icon_name in ["ic_launcher.xml","ic_launcher_round.xml"]:
+        p = os.path.join(RES, density, icon_name)
+        with open(p, "w", encoding="utf-8", newline="\n") as f:
+            f.write(adaptive_xml)
+print("  \u2713 mipmap-*/ic_launcher*.xml (all densities)")
 
 print()
 print("Done! Run:")
 print("  git add .")
-print("  git commit -m \"feat: new navbar, real app icons, Material Icon prayer icons\"")
+print("  git commit -m \"fix: navbar compile errors, mosque system app icon\"")
 print("  git push")
 print("  cd Sujood && ./gradlew assembleDebug")
