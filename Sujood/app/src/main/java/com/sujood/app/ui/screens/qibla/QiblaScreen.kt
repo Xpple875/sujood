@@ -68,7 +68,6 @@ private fun lowPassFilter(input: FloatArray, prev: FloatArray?): FloatArray {
     return FloatArray(input.size) { i -> prev[i] + LP_ALPHA * (input[i] - prev[i]) }
 }
 
-/** Shortest signed arc from -> to, result in [-180, 180]. */
 private fun shortestDelta(from: Float, to: Float): Float =
     ((to - from + 540f) % 360f) - 180f
 
@@ -98,30 +97,16 @@ fun QiblaScreen() {
                         qiblaDirection = calculateQiblaDirection(
                             loc.latitude, loc.longitude, KAABA_LAT, KAABA_LON)
                         statusMessage = "Location from GPS"
-                    } else {
-                        statusMessage = "Open Home tab to load your city location"
-                    }
-                } catch (_: Exception) {
-                    statusMessage = "Open Home tab to load your city location"
-                }
+                    } else statusMessage = "Open Home tab to load your location"
+                } catch (_: Exception) { statusMessage = "Open Home tab to load your location" }
             }
             else -> statusMessage = "No location found - open Home tab first"
         }
     }
 
-    // ── Heading state ────────────────────────────────────────────────────────
-    //
-    // WHY TWO VARIABLES?
-    //
-    // smoothedRaw  (0-360): the LP-filtered heading in normal compass degrees.
-    //   Used for the "facing Qibla" check and to compute deltas.
-    //   Initialised to NaN so we know when the first sensor reading arrives.
-    //
-    // accumulatedHead (unbounded): we add the shortest-arc delta to this each
-    //   sensor tick. It can be 361, 720, -45, etc. Compose animates it
-    //   linearly — which is always the short path because delta is always
-    //   in [-180, 180]. This eliminates the 0<->360 wrap-around spin.
-    //
+    // smoothedRaw  — normalised 0-360 heading, NaN until first sensor tick
+    // accumulatedHead — unbounded running total; lets animateFloatAsState
+    //   always take the short path (no 0<->360 wraparound spin)
     var smoothedRaw     by remember { mutableFloatStateOf(Float.NaN) }
     var accumulatedHead by remember { mutableFloatStateOf(0f) }
 
@@ -129,224 +114,143 @@ fun QiblaScreen() {
         val sm    = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val accel = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         val mag   = sm.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
-
-        var prevAccel: FloatArray? = null
-        var prevMag:   FloatArray? = null
-        var accelVals: FloatArray? = null
-        var magVals:   FloatArray? = null
+        var prevAccel: FloatArray? = null; var prevMag: FloatArray? = null
+        var accelVals: FloatArray? = null; var magVals: FloatArray? = null
 
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 when (event.sensor.type) {
-                    Sensor.TYPE_ACCELEROMETER -> {
-                        prevAccel = lowPassFilter(event.values.clone(), prevAccel)
-                        accelVals = prevAccel
-                    }
-                    Sensor.TYPE_MAGNETIC_FIELD -> {
-                        prevMag = lowPassFilter(event.values.clone(), prevMag)
-                        magVals = prevMag
-                    }
+                    Sensor.TYPE_ACCELEROMETER -> { prevAccel = lowPassFilter(event.values.clone(), prevAccel); accelVals = prevAccel }
+                    Sensor.TYPE_MAGNETIC_FIELD -> { prevMag = lowPassFilter(event.values.clone(), prevMag); magVals = prevMag }
                 }
-                val a = accelVals ?: return
-                val m = magVals   ?: return
-
+                val a = accelVals ?: return; val m = magVals ?: return
                 val R = FloatArray(9); val I = FloatArray(9)
                 if (!SensorManager.getRotationMatrix(R, I, a, m)) return
-                val orient = FloatArray(3)
-                SensorManager.getOrientation(R, orient)
-
-                val rawDeg  = Math.toDegrees(orient[0].toDouble()).toFloat()
-                val rawNorm = ((rawDeg % 360f) + 360f) % 360f
-
+                val orient = FloatArray(3); SensorManager.getOrientation(R, orient)
+                val rawNorm = ((Math.toDegrees(orient[0].toDouble()).toFloat() % 360f) + 360f) % 360f
                 if (smoothedRaw.isNaN()) {
-                    // First reading after entering screen — snap immediately,
-                    // no animation from 0 to wherever the phone is pointing.
-                    smoothedRaw     = rawNorm
-                    accumulatedHead = rawNorm
+                    // First tick after entering screen — snap instantly, no spin from 0
+                    smoothedRaw = rawNorm; accumulatedHead = rawNorm
                 } else {
-                    val delta       = shortestDelta(smoothedRaw, rawNorm)
-                    smoothedRaw     = ((smoothedRaw + LP_ALPHA * delta) + 360f) % 360f
+                    val delta = shortestDelta(smoothedRaw, rawNorm)
+                    smoothedRaw = ((smoothedRaw + LP_ALPHA * delta) + 360f) % 360f
                     accumulatedHead += LP_ALPHA * delta
                 }
             }
-
             override fun onAccuracyChanged(sensor: Sensor, acc: Int) {
                 if (sensor.type == Sensor.TYPE_MAGNETIC_FIELD)
                     isCalibrated = acc >= SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM
             }
         }
-
         accel?.let { sm.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
         mag?.let   { sm.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
         onDispose  { sm.unregisterListener(listener) }
     }
 
-    // Compass rose: rotate by -accumulatedHead (North stays up)
     val animatedHead by animateFloatAsState(
-        targetValue   = accumulatedHead,
+        targetValue = accumulatedHead,
         animationSpec = spring(Spring.DampingRatioNoBouncy, Spring.StiffnessLow),
-        label         = "compassHead"
+        label = "head"
     )
-    val compassRotation = -animatedHead
 
-    // Needle points toward Qibla. We compute the Qibla bearing relative to
-    // smoothedRaw (the 0-360 normalised heading) then express that as an
-    // offset from accumulatedHead so the animation stays in the linear domain.
-    val currentSmoothed = smoothedRaw.takeIf { !it.isNaN() } ?: 0f
-    val qiblaOffset     = shortestDelta(currentSmoothed,
-        ((qiblaDirection - currentSmoothed + 360f) % 360f))
-    val needleTarget    = accumulatedHead + qiblaOffset
-
+    val cur = smoothedRaw.takeIf { !it.isNaN() } ?: 0f
+    // Needle target: accumulated base + shortest-arc offset to qibla
+    val needleTarget = accumulatedHead + shortestDelta(cur, ((qiblaDirection - cur + 360f) % 360f))
     val animatedNeedle by animateFloatAsState(
-        targetValue   = needleTarget,
+        targetValue = needleTarget,
         animationSpec = spring(Spring.DampingRatioNoBouncy, Spring.StiffnessLow),
-        label         = "needleRot"
+        label = "needle"
     )
 
-    val isFacingQibla  = !smoothedRaw.isNaN() &&
-        kotlin.math.abs(shortestDelta(currentSmoothed, qiblaDirection)) < 5f
-
+    val isFacingQibla = !smoothedRaw.isNaN() && kotlin.math.abs(shortestDelta(cur, qiblaDirection)) < 5f
     val compassScale by animateFloatAsState(
-        targetValue   = if (isFacingQibla) 1.04f else 1f,
+        targetValue = if (isFacingQibla) 1.04f else 1f,
         animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium),
-        label         = "scale"
+        label = "scale"
     )
 
     AnimatedGradientBackground {
-        Column(
-            modifier            = Modifier.fillMaxSize().padding(top = 32.dp),
+        Column(Modifier.fillMaxSize().padding(top = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
-        ) {
+            verticalArrangement = Arrangement.Top) {
+
             Text("Qibla Compass", style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(Modifier.height(4.dp))
             Text(
-                text      = if (!isCalibrated) "Move your phone in a figure-8 to calibrate"
-                            else statusMessage,
-                style     = MaterialTheme.typography.bodySmall,
-                color     = if (!isCalibrated) Color(0xFFFBBF24) else TextSecondary,
-                textAlign = TextAlign.Center,
-                modifier  = Modifier.padding(horizontal = 32.dp)
+                text = if (!isCalibrated) "Move your phone in a figure-8 to calibrate" else statusMessage,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (!isCalibrated) Color(0xFFFBBF24) else TextSecondary,
+                textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 32.dp)
             )
-
             Spacer(Modifier.height(48.dp))
 
-            Box(modifier = Modifier.size(280.dp).scale(compassScale),
-                contentAlignment = Alignment.Center) {
-
-                Canvas(modifier = Modifier.fillMaxSize().rotate(compassRotation)) {
-                    val cx = size.width  / 2f
-                    val cy = size.height / 2f
-                    val r  = size.minDimension / 2f
-
-                    drawCircle(
-                        brush  = Brush.radialGradient(
-                            colors = listOf(LavenderGlow.copy(alpha = 0.15f), Color.Transparent),
-                            center = Offset(cx, cy), radius = r),
-                        radius = r)
-                    drawCircle(color = Color.White.copy(alpha = 0.08f),
-                        radius = r - 4f, style = Stroke(width = 1.5f))
-                    drawCircle(color = Color.White.copy(alpha = 0.04f),
-                        radius = r * 0.75f, style = Stroke(width = 1f))
+            Box(Modifier.size(280.dp).scale(compassScale), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.fillMaxSize().rotate(-animatedHead)) {
+                    val cx = size.width / 2f; val cy = size.height / 2f; val r = size.minDimension / 2f
+                    drawCircle(Brush.radialGradient(listOf(LavenderGlow.copy(alpha = 0.15f), Color.Transparent), Offset(cx, cy), r), r)
+                    drawCircle(Color.White.copy(alpha = 0.08f), r - 4f, style = Stroke(1.5f))
+                    drawCircle(Color.White.copy(alpha = 0.04f), r * 0.75f, style = Stroke(1f))
                     for (i in 0 until 8) {
-                        val angle = Math.toRadians((i * 45.0))
-                        val isMaj = i % 2 == 0
-                        val inner = r * (if (isMaj) 0.82f else 0.88f)
-                        val outer = r * 0.94f
-                        drawLine(
-                            color = Color.White.copy(alpha = if (isMaj) 0.5f else 0.25f),
-                            start = Offset(cx + (inner * sin(angle)).toFloat(),
-                                          cy - (inner * cos(angle)).toFloat()),
-                            end   = Offset(cx + (outer * sin(angle)).toFloat(),
-                                          cy - (outer * cos(angle)).toFloat()),
-                            strokeWidth = if (isMaj) 2f else 1f
-                        )
+                        val ang = Math.toRadians(i * 45.0); val maj = i % 2 == 0
+                        val ri = r * if (maj) 0.82f else 0.88f; val ro = r * 0.94f
+                        drawLine(Color.White.copy(alpha = if (maj) 0.5f else 0.25f),
+                            Offset(cx + (ri * sin(ang)).toFloat(), cy - (ri * cos(ang)).toFloat()),
+                            Offset(cx + (ro * sin(ang)).toFloat(), cy - (ro * cos(ang)).toFloat()),
+                            if (maj) 2f else 1f)
                     }
                 }
-
-                Canvas(modifier = Modifier.fillMaxSize().rotate(animatedNeedle)) {
-                    val cx = size.width  / 2f
-                    val cy = size.height / 2f
-                    val path = Path().apply {
+                Canvas(Modifier.fillMaxSize().rotate(animatedNeedle)) {
+                    val cx = size.width / 2f; val cy = size.height / 2f
+                    val p = Path().apply {
                         moveTo(cx, cy - size.minDimension * 0.38f)
-                        lineTo(cx - 12, cy + 14)
-                        lineTo(cx, cy + 24)
-                        lineTo(cx + 12, cy + 14)
-                        close()
+                        lineTo(cx - 12, cy + 14); lineTo(cx, cy + 24); lineTo(cx + 12, cy + 14); close()
                     }
-                    drawPath(path, brush = Brush.verticalGradient(
-                        colors = listOf(
-                            if (isFacingQibla) WarmAmber else LavenderGlow,
-                            if (isFacingQibla) WarmAmber.copy(alpha = 0.4f) else SoftPurple.copy(alpha = 0.4f)
-                        )))
+                    drawPath(p, Brush.verticalGradient(listOf(
+                        if (isFacingQibla) WarmAmber else LavenderGlow,
+                        if (isFacingQibla) WarmAmber.copy(alpha = 0.4f) else SoftPurple.copy(alpha = 0.4f)
+                    )))
                     drawCircle(Color.White, 8f, Offset(cx, cy))
                     drawCircle(if (isFacingQibla) WarmAmber else SoftPurple, 4f, Offset(cx, cy))
                 }
-
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = 16.dp)
-                        .clip(CircleShape)
-                        .background(if (isFacingQibla) WarmAmber.copy(alpha = 0.25f)
-                                    else Color.White.copy(alpha = 0.08f))
-                        .border(1.dp,
-                            if (isFacingQibla) WarmAmber.copy(alpha = 0.7f)
-                            else Color.White.copy(alpha = 0.2f), CircleShape)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Filled.Mosque, "Qibla direction",
-                        tint     = if (isFacingQibla) WarmAmber else Color.White.copy(alpha = 0.80f),
+                Box(Modifier.align(Alignment.TopCenter).padding(top = 16.dp).clip(CircleShape)
+                    .background(if (isFacingQibla) WarmAmber.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f))
+                    .border(1.dp, if (isFacingQibla) WarmAmber.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.2f), CircleShape)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Mosque, "Qibla",
+                        tint = if (isFacingQibla) WarmAmber else Color.White.copy(alpha = 0.80f),
                         modifier = Modifier.size(20.dp))
                 }
             }
 
             Spacer(Modifier.height(32.dp))
-
-            Text(
-                text       = if (isFacingQibla) "Facing Qibla"
-                             else "${qiblaDirection.roundToInt()} from North",
-                style      = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Medium,
-                color      = if (isFacingQibla) WarmAmber else LavenderGlow
-            )
+            Text(if (isFacingQibla) "Facing Qibla" else "${qiblaDirection.roundToInt()} from North",
+                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium,
+                color = if (isFacingQibla) WarmAmber else LavenderGlow)
             Spacer(Modifier.height(8.dp))
             Text(
-                text      = if (isFacingQibla)
-                    "You are facing the Kaaba. May Allah accept your prayer."
-                else
-                    "Rotate your phone until the arrow points toward the Mosque icon",
-                style     = MaterialTheme.typography.bodyMedium,
-                color     = TextSecondary,
-                textAlign = TextAlign.Center,
-                modifier  = Modifier.padding(horizontal = 32.dp)
+                if (isFacingQibla) "You are facing the Kaaba. May Allah accept your prayer."
+                else "Rotate your phone until the arrow points toward the Mosque icon",
+                style = MaterialTheme.typography.bodyMedium, color = TextSecondary,
+                textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 32.dp)
             )
             Spacer(Modifier.height(24.dp))
-            Box(modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color.White.copy(alpha = 0.05f))
+            Box(Modifier.clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.05f))
                 .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
                 .padding(horizontal = 20.dp, vertical = 10.dp)) {
-                Text("21.4225 N, 39.8262 E",
-                    style = MaterialTheme.typography.bodySmall,
+                Text("21.4225 N, 39.8262 E", style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary.copy(alpha = 0.7f))
             }
         }
     }
 }
 
-private fun calculateQiblaDirection(
-    fromLat: Double, fromLon: Double,
-    toLat: Double,   toLon: Double
-): Float {
-    val dLon    = Math.toRadians(toLon - fromLon)
-    val lat1    = Math.toRadians(fromLat)
-    val lat2    = Math.toRadians(toLat)
-    val y       = sin(dLon) * cos(lat2)
-    val x       = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)
-    return ((Math.toDegrees(atan2(y, x)) + 360.0) % 360.0).toFloat()
+private fun calculateQiblaDirection(fromLat: Double, fromLon: Double, toLat: Double, toLon: Double): Float {
+    val dLon = Math.toRadians(toLon - fromLon)
+    val lat1 = Math.toRadians(fromLat); val lat2 = Math.toRadians(toLat)
+    return ((Math.toDegrees(atan2(sin(dLon) * cos(lat2),
+        cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon))) + 360.0) % 360.0).toFloat()
 }
 
 private const val KAABA_LAT = 21.4225
