@@ -96,7 +96,6 @@ private val GlassBrd    = Color(0xFFFFFFFF).copy(alpha = 0.10f)
 private val SlateMuted  = Color(0xFF64748B)
 private val SlateText   = Color(0xFF94A3B8)
 
-// Curated city list (same as HomeScreen — so search works properly)
 private val CITY_LIST = listOf(
     "Dubai, UAE","Abu Dhabi, UAE","Sharjah, UAE","Ajman, UAE","Al Ain, UAE",
     "Riyadh, Saudi Arabia","Jeddah, Saudi Arabia","Mecca, Saudi Arabia","Medina, Saudi Arabia",
@@ -142,13 +141,11 @@ fun SettingsScreen(
     var showAdhanDialog        by remember { mutableStateOf(false) }
     var cacheCleared           by remember { mutableStateOf(false) }
 
-    // Location permission launcher — used by "Use GPS" button in dialog
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
             scope.launch {
-                // Trigger immediate GPS scan via saving useGps=true then letting HomeViewModel pick it up
                 userPreferences.saveLocationSettings(true, "", "", 0.0, 0.0)
             }
         }
@@ -161,7 +158,6 @@ fun SettingsScreen(
         LazyColumn(modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 120.dp)) {
 
-            // Header
             item {
                 Row(modifier = Modifier.fillMaxWidth()
                     .padding(horizontal = 24.dp).padding(top = 16.dp, bottom = 8.dp),
@@ -180,7 +176,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Profile card
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth()
                     .padding(horizontal = 24.dp).padding(top = 16.dp).clickable { showNameDialog = true }) {
@@ -219,7 +214,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Location & Prayer
             item { SectionLabel("Location & Prayer") }
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
@@ -249,7 +243,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Notifications
             item { SectionLabel("Notifications") }
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
@@ -266,7 +259,6 @@ fun SettingsScreen(
                             }, colors = blueSwitchColors())
                         })
                     GlassDivider()
-                    // Per-prayer grid
                     Row(modifier = Modifier.fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -300,7 +292,6 @@ fun SettingsScreen(
                         trailing = { Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) },
                         onClick = { showAdhanDialog = true })
                     GlassDivider()
-                    // ── Adhan Volume ──────────────────────────────────────
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -342,7 +333,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Audio & Haptics
             item { SectionLabel("Audio & Haptics") }
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
@@ -355,7 +345,6 @@ fun SettingsScreen(
                 }
             }
 
-            // App Preferences
             item { SectionLabel("App Preferences") }
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
@@ -367,7 +356,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Data Management
             item { SectionLabel("Data Management") }
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
@@ -393,7 +381,6 @@ fun SettingsScreen(
                 }
             }
 
-            // About
             item { SectionLabel("About") }
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
@@ -409,7 +396,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Sign Out
             item {
                 Box(modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp),
                     contentAlignment = Alignment.Center) {
@@ -425,7 +411,6 @@ fun SettingsScreen(
         }
     }
 
-    // ── Dialogs ───────────────────────────────────────────────────────────
     if (showNameDialog) {
         NameDialog(settings.name, { showNameDialog = false }) { name ->
             scope.launch { userPreferences.saveUserName(name) }; showNameDialog = false
@@ -483,8 +468,6 @@ fun SettingsScreen(
     }
 }
 
-// ── Components ────────────────────────────────────────────────────────────────
-
 @Composable
 private fun SectionLabel(text: String) {
     Text(text.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp,
@@ -532,8 +515,6 @@ private fun SettingsRow(
 private fun blueSwitchColors() = SwitchDefaults.colors(
     checkedThumbColor = Color.White, checkedTrackColor = PrimaryBlue,
     uncheckedThumbColor = Color.White, uncheckedTrackColor = Color(0xFF334155))
-
-// ── Dialogs ───────────────────────────────────────────────────────────────────
 
 @Composable
 private fun NameDialog(currentName: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {

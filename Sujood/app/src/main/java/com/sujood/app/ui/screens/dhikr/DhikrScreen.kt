@@ -1,9 +1,14 @@
 package com.sujood.app.ui.screens.dhikr
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.drawable.Drawable
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,7 +18,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,8 +27,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -33,15 +40,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.sujood.app.data.local.datastore.UserPreferences
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
+import com.sujood.app.data.local.datastore.UserPreferences
 import com.sujood.app.domain.model.LockMode
 import com.sujood.app.domain.model.UserSettings
 import com.sujood.app.service.PrayerLockOverlayService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val PrimaryBlue    = Color(0xFF1132D4)
 private val BackgroundDark = Color(0xFF101322)
@@ -50,21 +57,51 @@ private val TextMuted      = Color(0xFF94A3B8)
 private val TextDim        = Color(0xFF475569)
 private val CardBg         = Color(0xFF0D1020)
 
-// The apps shown in the Specific Apps picker
-private data class AppEntry(val name: String, val packageName: String, val brandColor: Long)
+// Candidate app list — only installed ones will actually appear
+private data class AppCandidate(val name: String, val packageName: String)
 
-private val COMMON_APPS = listOf(
-    AppEntry("TikTok",      "com.zhiliaoapp.musically",        0xFF010101),
-    AppEntry("Instagram",   "com.instagram.android",           0xFFE1306C),
-    AppEntry("YouTube",     "com.google.android.youtube",      0xFFFF0000),
-    AppEntry("X / Twitter", "com.twitter.android",             0xFF1A1A1A),
-    AppEntry("Snapchat",    "com.snapchat.android",            0xFFFFD000),
-    AppEntry("Facebook",    "com.facebook.katana",             0xFF1877F2),
-    AppEntry("WhatsApp",    "com.whatsapp",                    0xFF25D366),
-    AppEntry("Reddit",      "com.reddit.frontpage",            0xFFFF4500),
-    AppEntry("Netflix",     "com.netflix.mediaclient",         0xFFE50914),
-    AppEntry("Twitch",      "tv.twitch.android.app",           0xFF9146FF),
+private val CANDIDATE_APPS = listOf(
+    AppCandidate("TikTok",      "com.zhiliaoapp.musically"),
+    AppCandidate("Instagram",   "com.instagram.android"),
+    AppCandidate("YouTube",     "com.google.android.youtube"),
+    AppCandidate("X / Twitter", "com.twitter.android"),
+    AppCandidate("Snapchat",    "com.snapchat.android"),
+    AppCandidate("Facebook",    "com.facebook.katana"),
+    AppCandidate("WhatsApp",    "com.whatsapp"),
+    AppCandidate("Reddit",      "com.reddit.frontpage"),
+    AppCandidate("Netflix",     "com.netflix.mediaclient"),
+    AppCandidate("Twitch",      "tv.twitch.android.app"),
+    AppCandidate("Discord",     "com.discord"),
+    AppCandidate("Telegram",    "org.telegram.messenger"),
+    AppCandidate("Spotify",     "com.spotify.music"),
+    AppCandidate("Twitter",     "com.twitter.android"),
+    AppCandidate("Pinterest",   "com.pinterest"),
+    AppCandidate("LinkedIn",    "com.linkedin.android"),
 )
+
+// Holds an installed app's resolved display name + icon bitmap
+private data class InstalledApp(
+    val name: String,
+    val packageName: String,
+    val icon: ImageBitmap
+)
+
+// Load only installed apps with their real icons — runs on IO thread
+private suspend fun loadInstalledApps(context: Context): List<InstalledApp> =
+    withContext(Dispatchers.IO) {
+        val pm = context.packageManager
+        CANDIDATE_APPS.mapNotNull { candidate ->
+            try {
+                val info = pm.getApplicationInfo(candidate.packageName, 0)
+                val label = pm.getApplicationLabel(info).toString()
+                val drawable: Drawable = pm.getApplicationIcon(candidate.packageName)
+                val bitmap = drawable.toBitmap(96, 96).asImageBitmap()
+                InstalledApp(name = label, packageName = candidate.packageName, icon = bitmap)
+            } catch (_: Exception) {
+                null // App not installed — skip it
+            }
+        }
+    }
 
 @Composable
 fun DhikrScreen() {
@@ -74,6 +111,33 @@ fun DhikrScreen() {
 
     var showAppsPanel by remember { mutableStateOf(false) }
     var infoDialog    by remember { mutableStateOf<Pair<String, String>?>(null) }
+
+    // Installed apps list — loaded off main thread and refreshed on installs/uninstalls
+    var installedApps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
+
+    // Initial load
+    LaunchedEffect(Unit) {
+        installedApps = loadInstalledApps(context)
+    }
+
+    // Listen for app installs / uninstalls — refresh list automatically
+    DisposableEffect(Unit) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                CoroutineScope(Dispatchers.Main).launch {
+                    installedApps = loadInstalledApps(context)
+                }
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addDataScheme("package")
+        }
+        context.registerReceiver(receiver, filter)
+        onDispose { context.unregisterReceiver(receiver) }
+    }
 
     infoDialog?.let { (title, body) ->
         InfoDialog(title = title, body = body, onDismiss = { infoDialog = null })
@@ -169,32 +233,51 @@ fun DhikrScreen() {
                                         fontSize = 12.sp, color = TextMuted)
                                     Spacer(Modifier.height(12.dp))
 
-                                    val lockedSet = remember(settings.lockedAppsPackageNames) {
-                                        settings.lockedAppsPackageNames.split(",").filter { it.isNotBlank() }.toMutableSet()
-                                    }
-
-                                    COMMON_APPS.forEach { app ->
-                                        val isLocked = settings.lockedAppsPackageNames.contains(app.packageName)
-                                        Row(modifier = Modifier.fillMaxWidth()
-                                            .padding(vertical = 6.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Row(verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                                AppIconBox(app.packageName, app.name, app.brandColor)
-                                                Text(app.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White)
+                                    if (installedApps.isEmpty()) {
+                                        // Loading state
+                                        Box(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                            contentAlignment = Alignment.Center) {
+                                            CircularProgressIndicator(
+                                                color = PrimaryBlue,
+                                                modifier = Modifier.size(28.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                        }
+                                    } else {
+                                        installedApps.forEach { app ->
+                                            val isLocked = settings.lockedAppsPackageNames.contains(app.packageName)
+                                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween) {
+                                                Row(verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                    // Real app icon — no colored box, just the icon itself
+                                                    Image(
+                                                        bitmap = app.icon,
+                                                        contentDescription = app.name,
+                                                        contentScale = ContentScale.Fit,
+                                                        modifier = Modifier
+                                                            .size(36.dp)
+                                                            .clip(RoundedCornerShape(10.dp))
+                                                    )
+                                                    Text(app.name, fontSize = 14.sp,
+                                                        fontWeight = FontWeight.Medium, color = Color.White)
+                                                }
+                                                Switch(checked = isLocked,
+                                                    onCheckedChange = { enabled ->
+                                                        val current = settings.lockedAppsPackageNames
+                                                            .split(",").filter { it.isNotBlank() }.toMutableSet()
+                                                        if (enabled) current.add(app.packageName)
+                                                        else current.remove(app.packageName)
+                                                        CoroutineScope(Dispatchers.IO).launch {
+                                                            userPreferences.saveLockBehavior(
+                                                                settings.minLockDurationMinutes,
+                                                                current.joinToString(",")
+                                                            )
+                                                        }
+                                                    },
+                                                    colors = blueSwitchColors())
                                             }
-                                            Switch(checked = isLocked,
-                                                onCheckedChange = { enabled ->
-                                                    val current = settings.lockedAppsPackageNames
-                                                        .split(",").filter { it.isNotBlank() }.toMutableSet()
-                                                    if (enabled) current.add(app.packageName)
-                                                    else current.remove(app.packageName)
-                                                    CoroutineScope(Dispatchers.IO).launch {
-                                                        userPreferences.saveLockBehavior(settings.minLockDurationMinutes, current.joinToString(","))
-                                                    }
-                                                },
-                                                colors = blueSwitchColors())
                                         }
                                     }
                                 }
@@ -294,13 +377,11 @@ fun DhikrScreen() {
                 // ── Test Lock (Real Trigger) ────────────────────────────────
                 item {
                     Spacer(Modifier.height(4.dp))
-                    // Description
                     Text("This fires the actual overlay — just like at prayer time.",
                         fontSize = 12.sp, color = TextMuted, textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
                     Button(
                         onClick = {
-                            // Start the real overlay service — same path as a real prayer alarm
                             PrayerLockOverlayService.start(context, "Test Prayer", "الصلاة")
                         },
                         modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -322,42 +403,6 @@ fun DhikrScreen() {
 }
 
 // ── Reusable composables ──────────────────────────────────────────────────────
-
-
-@Composable
-private fun AppIconBox(packageName: String, appName: String, brandColor: Long) {
-    val context = LocalContext.current
-    // Try to get the real installed app icon via PackageManager
-    val iconBitmap = remember(packageName) {
-        try {
-            val drawable = context.packageManager.getApplicationIcon(packageName)
-            android.graphics.Bitmap.createScaledBitmap(
-                drawable.toBitmap(), 96, 96, true
-            ).asImageBitmap()
-        } catch (e: Exception) { null }
-    }
-    Box(
-        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
-            .background(Color(brandColor)),
-        contentAlignment = Alignment.Center
-    ) {
-        if (iconBitmap != null) {
-            androidx.compose.foundation.Image(
-                bitmap = iconBitmap,
-                contentDescription = appName,
-                modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp))
-            )
-        } else {
-            // Fallback: first letter initial
-            Text(
-                text = appName.first().uppercase(),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (brandColor == 0xFFFFD000L) Color.Black else Color.White
-            )
-        }
-    }
-}
 
 @Composable
 private fun GlassCard(content: @Composable () -> Unit) {
