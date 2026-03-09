@@ -66,10 +66,15 @@ fun GlassmorphicBottomNavBar(
                 )),
                 shape = shape
             )
-            .height(84.dp)
+            // Increased from 84.dp to 104.dp — extra 20dp of breathing room above icons
+            .height(104.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(horizontal = 4.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+                // Push icons down slightly so the extra top space is above them, not below
+                .padding(horizontal = 4.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -78,7 +83,7 @@ fun GlassmorphicBottomNavBar(
                     item = item,
                     isSelected = currentRoute == item.route,
                     onClick = { onNavigate(item.route) },
-                    modifier = Modifier.weight(1f)   // weight IS valid inside Row scope here
+                    modifier = Modifier.weight(1f)
                 )
             }
         }

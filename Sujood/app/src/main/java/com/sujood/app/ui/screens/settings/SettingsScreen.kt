@@ -382,7 +382,6 @@ fun SettingsScreen(
                                 Text("42 MB", fontSize = 12.sp, color = SlateMuted)
                         },
                         onClick = {
-                            // Clear app cache directory
                             scope.launch {
                                 try {
                                     context.cacheDir.deleteRecursively()
@@ -444,7 +443,6 @@ fun SettingsScreen(
                 showCityDialog = false
             },
             onUseGps = {
-                // Request permission then immediately save useGps=true so HomeScreen re-fetches
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                     val pm = context.packageManager
                     val granted = pm.checkPermission(Manifest.permission.ACCESS_FINE_LOCATION, context.packageName) ==
