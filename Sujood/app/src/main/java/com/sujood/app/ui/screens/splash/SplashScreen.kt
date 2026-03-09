@@ -13,6 +13,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.font.FontWeight
@@ -78,7 +80,7 @@ fun SplashScreen(onNavigate: () -> Unit) {
                 Canvas(Modifier.size(120.dp)) {
                     val r = size.width * 0.22f   // corner radius ~26dp at 120dp size
                     val path = Path().apply {
-                        addRoundRect(RoundRect(Rect(0f, 0f, size.width, size.height), r, r))
+                        addRoundRect(RoundRect(Rect(0f, 0f, size.width, size.height), CornerRadius(r)))
                     }
                     // Slight shadow / border illusion
                     drawPath(path, Color(0xFF0A1A28))
