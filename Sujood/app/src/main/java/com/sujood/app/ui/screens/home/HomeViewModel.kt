@@ -5,6 +5,8 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
@@ -30,6 +32,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class HomeUiState(
     val isLoading: Boolean = true,
@@ -61,8 +66,64 @@ class HomeViewModel(
 
     companion object {
         private const val TAG = "HomeViewModel"
-        private const val LOCATION_TIMEOUT_MS = 10000L
-        private const val API_TIMEOUT_MS = 10000L
+        private const val LOCATION_TIMEOUT_MS = 8000L
+        private const val API_TIMEOUT_MS      = 10000L
+
+        // Hardcoded coordinates for popular cities shown in the city picker.
+        // Using coordinates + /timings is MUCH more reliable than /timingsByCity.
+        private val CITY_COORDS = mapOf(
+            "dubai"          to Pair(25.2048,  55.2708),
+            "abu dhabi"      to Pair(24.4539,  54.3773),
+            "sharjah"        to Pair(25.3463,  55.4209),
+            "ajman"          to Pair(25.4052,  55.5136),
+            "al ain"         to Pair(24.2075,  55.7447),
+            "riyadh"         to Pair(24.7136,  46.6753),
+            "jeddah"         to Pair(21.4858,  39.1925),
+            "mecca"          to Pair(21.3891,  39.8579),
+            "medina"         to Pair(24.5247,  39.5692),
+            "london"         to Pair(51.5074,  -0.1278),
+            "manchester"     to Pair(53.4808,  -2.2426),
+            "birmingham"     to Pair(52.4862,  -1.8904),
+            "glasgow"        to Pair(55.8642,  -4.2518),
+            "new york"       to Pair(40.7128, -74.0060),
+            "los angeles"    to Pair(34.0522,-118.2437),
+            "chicago"        to Pair(41.8781, -87.6298),
+            "houston"        to Pair(29.7604, -95.3698),
+            "toronto"        to Pair(43.6532, -79.3832),
+            "montreal"       to Pair(45.5017, -73.5673),
+            "vancouver"      to Pair(49.2827,-123.1207),
+            "cairo"          to Pair(30.0444,  31.2357),
+            "alexandria"     to Pair(31.2001,  29.9187),
+            "istanbul"       to Pair(41.0082,  28.9784),
+            "ankara"         to Pair(39.9334,  32.8597),
+            "kuala lumpur"   to Pair( 3.1390, 101.6869),
+            "jakarta"        to Pair(-6.2088, 106.8456),
+            "karachi"        to Pair(24.8607,  67.0011),
+            "lahore"         to Pair(31.5497,  74.3436),
+            "islamabad"      to Pair(33.7294,  73.0931),
+            "dhaka"          to Pair(23.8103,  90.4125),
+            "mumbai"         to Pair(19.0760,  72.8777),
+            "delhi"          to Pair(28.7041,  77.1025),
+            "paris"          to Pair(48.8566,   2.3522),
+            "berlin"         to Pair(52.5200,  13.4050),
+            "amsterdam"      to Pair(52.3676,   4.9041),
+            "lagos"          to Pair( 6.5244,   3.3792),
+            "nairobi"        to Pair(-1.2921,  36.8219),
+            "casablanca"     to Pair(33.5731,  -7.5898),
+            "doha"           to Pair(25.2854,  51.5310),
+            "kuwait city"    to Pair(29.3759,  47.9774),
+            "manama"         to Pair(26.2235,  50.5876),
+            "muscat"         to Pair(23.5880,  58.3829),
+            "amman"          to Pair(31.9454,  35.9284),
+            "beirut"         to Pair(33.8938,  35.5018),
+            "baghdad"        to Pair(33.3152,  44.3661),
+            "tehran"         to Pair(35.6892,  51.3890),
+            "sydney"         to Pair(-33.8688, 151.2093),
+            "singapore"      to Pair( 1.3521, 103.8198),
+            "tokyo"          to Pair(35.6762, 139.6503),
+            "cape town"      to Pair(-33.9249,  18.4241),
+            "johannesburg"   to Pair(-26.2041,  28.0473)
+        )
     }
 
     init {
@@ -70,36 +131,114 @@ class HomeViewModel(
         startTimeUpdates()
     }
 
+    private fun todayKey(): String =
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
+    private fun isOnline(context: Context): Boolean {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val cap = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        return cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    /**
+     * Called whenever Home tab becomes visible.
+     * Strategy:
+     *   1. If we already have times loaded this session → skip (no re-fetch).
+     *   2. Try today's cached times → show instantly (works offline).
+     *   3. If online → refresh from network in background and update silently.
+     *   4. If offline and no cache → show error with offline message.
+     */
     fun initializeAndRefresh(context: Context) {
         cachedContext = context.applicationContext
-        // Skip re-fetch if prayer times are already loaded — prevents redundant
-        // GPS / network calls every time the user navigates back to Home.
         if (_uiState.value.prayerTimes.isNotEmpty()) return
 
         viewModelScope.launch {
             val settings = userPreferences.userSettings.first()
+            val today    = todayKey()
+            val online   = isOnline(context)
+
+            // Step 1: Try today's cache immediately (instant, no network needed)
+            val cache = userPreferences.getCachedPrayerTimesForToday(today)
+            if (cache != null) {
+                val cached = buildPrayerTimesFromCache(cache, today)
+                handlePrayerTimesSuccessNoCache(cached)   // show cache without re-caching
+                if (!online) return@launch                // offline + cache = we're done
+                // Online: fall through to silently refresh in background
+                refreshInBackground(settings, context)
+                return@launch
+            }
+
+            // Step 2: No cache. Must go online.
+            if (!online) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "No internet connection. Prayer times will load when you're back online."
+                )
+                return@launch
+            }
+
+            // Step 3: Online, no cache — normal fetch
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             when {
-                settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0 -> {
-                    _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+                settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0 ->
                     fetchPrayerTimesByLocation(settings.savedLatitude, settings.savedLongitude)
-                }
                 settings.savedCity.isNotEmpty() -> {
-                    _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-                    // Strip country suffix e.g. "Dubai, UAE" -> "Dubai"
-                    val bareCity = settings.savedCity.substringBefore(",").trim()
-                    repository.getPrayerTimesByCity(bareCity, settings.calculationMethod, settings.madhab)
-                        .fold(
+                    val bareCity = settings.savedCity.substringBefore(",").trim().lowercase()
+                    val coords   = CITY_COORDS[bareCity]
+                    if (coords != null) {
+                        fetchPrayerTimesByLocation(coords.first, coords.second)
+                    } else {
+                        repository.getPrayerTimesByCity(
+                            settings.savedCity.substringBefore(",").trim(),
+                            settings.calculationMethod, settings.madhab
+                        ).fold(
                             onSuccess = { handlePrayerTimesSuccess(it) },
-                            onFailure = {
-                                _uiState.value = _uiState.value.copy(
-                                    isLoading = false,
-                                    error = "Could not load times for ${settings.savedCity}")
-                            }
+                            onFailure = { _uiState.value = _uiState.value.copy(isLoading = false,
+                                error = "Could not load times for ${settings.savedCity}") }
                         )
+                    }
                 }
                 else -> fetchPrayerTimes(context)
             }
         }
+    }
+
+    /** Silent background refresh — updates times without showing loading spinner. */
+    private suspend fun refreshInBackground(settings: UserSettings, context: Context) {
+        try {
+            when {
+                settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0 -> {
+                    val result = withTimeout(API_TIMEOUT_MS) {
+                        repository.getPrayerTimes(settings.savedLatitude, settings.savedLongitude,
+                            settings.calculationMethod, settings.madhab)
+                    }
+                    result.onSuccess { handlePrayerTimesSuccess(it) }
+                }
+                settings.savedCity.isNotEmpty() -> {
+                    val bareCity = settings.savedCity.substringBefore(",").trim().lowercase()
+                    val coords   = CITY_COORDS[bareCity]
+                    if (coords != null) {
+                        val result = withTimeout(API_TIMEOUT_MS) {
+                            repository.getPrayerTimes(coords.first, coords.second,
+                                settings.calculationMethod, settings.madhab)
+                        }
+                        result.onSuccess { handlePrayerTimesSuccess(it) }
+                    }
+                }
+                else -> {
+                    // Try GPS quietly
+                    fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+                    val loc = getLocationWithTimeout(context)
+                    if (loc != null) {
+                        val result = withTimeout(API_TIMEOUT_MS) {
+                            repository.getPrayerTimes(loc.latitude, loc.longitude,
+                                settings.calculationMethod, settings.madhab)
+                        }
+                        result.onSuccess { handlePrayerTimesSuccess(it) }
+                    }
+                }
+            }
+        } catch (_: Exception) { /* silent — cache is already shown */ }
     }
 
     private fun loadUserData() {
@@ -114,11 +253,11 @@ class HomeViewModel(
         viewModelScope.launch {
             while (true) {
                 delay(1000)
-                val prayerTimes = _uiState.value.prayerTimes
-                if (prayerTimes.isNotEmpty()) {
+                val pt = _uiState.value.prayerTimes
+                if (pt.isNotEmpty()) {
                     _uiState.value = _uiState.value.copy(
                         currentTimeMillis = System.currentTimeMillis(),
-                        nextPrayerInfo    = getNextPrayerUseCase(prayerTimes)
+                        nextPrayerInfo    = getNextPrayerUseCase(pt)
                     )
                 }
             }
@@ -140,18 +279,22 @@ class HomeViewModel(
             try {
                 val location = getLocationWithTimeout(context)
                 if (location != null) {
+                    // Save GPS coords for future offline use
                     viewModelScope.launch {
-                        userPreferences.saveLocationSettings(true, "", "", location.latitude, location.longitude)
+                        userPreferences.saveLocationSettings(true, "", "",
+                            location.latitude, location.longitude)
                     }
                     fetchPrayerTimesByLocation(location.latitude, location.longitude)
                 } else {
                     _uiState.value = _uiState.value.copy(isLoading = false, isLoadingLocation = false,
-                        showCityInput = true, error = "Location timed out. Please enter your city manually.")
+                        showCityInput = true,
+                        error = "Could not get location. Please enter your city manually.")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching location", e)
                 _uiState.value = _uiState.value.copy(isLoading = false, isLoadingLocation = false,
-                    showCityInput = true, error = "Could not get location. Please enter your city manually.")
+                    showCityInput = true,
+                    error = "Could not get location. Please enter your city manually.")
             }
         }
     }
@@ -165,8 +308,22 @@ class HomeViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val settings = userPreferences.userSettings.first()
             val bareCity = cityName.substringBefore(",").trim()
+            val key      = bareCity.lowercase()
+
+            // Try hardcoded coords first — fastest and most reliable
+            val coords = CITY_COORDS[key]
+            if (coords != null) {
+                Log.d(TAG, "Using hardcoded coords for $bareCity: ${coords.first}, ${coords.second}")
+                viewModelScope.launch {
+                    userPreferences.saveLocationSettings(false, cityName, "",
+                        coords.first, coords.second)
+                }
+                fetchPrayerTimesByLocation(coords.first, coords.second)
+                return@launch
+            }
+
+            // Fallback: try Aladhan /timingsByCity
             try {
-                // Primary: /timingsByCity with user's calculation method
                 repository.getPrayerTimesByCity(bareCity, settings.calculationMethod, settings.madhab)
                     .fold(
                         onSuccess = { prayerTimes ->
@@ -176,7 +333,7 @@ class HomeViewModel(
                             handlePrayerTimesSuccess(prayerTimes)
                         },
                         onFailure = {
-                            // Fallback: coordinate lookup
+                            // Last resort: citySearch for coordinates
                             try {
                                 val cityData = repository.searchCity(bareCity).data.firstOrNull()
                                 if (cityData != null) {
@@ -187,9 +344,9 @@ class HomeViewModel(
                                     fetchPrayerTimesByLocation(cityData.latitude, cityData.longitude)
                                 } else {
                                     _uiState.value = _uiState.value.copy(isLoading = false,
-                                        error = "Could not find prayer times for \"$cityName\".")
+                                        error = "Could not find \"$cityName\". Try another city name.")
                                 }
-                            } catch (e2: Exception) {
+                            } catch (_: Exception) {
                                 _uiState.value = _uiState.value.copy(isLoading = false,
                                     error = "Could not find prayer times for \"$cityName\".")
                             }
@@ -212,7 +369,7 @@ class HomeViewModel(
                 try { fusedLocationClient?.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, ct.token)?.await() }
                 catch (e: Exception) { Log.e(TAG, "Location task failed", e); null }
             }
-        } catch (e: Exception) { Log.e(TAG, "Error getting location", e); null }
+        } catch (e: Exception) { Log.e(TAG, "Location timeout", e); null }
     }
 
     private suspend fun fetchPrayerTimesByLocation(latitude: Double, longitude: Double) {
@@ -222,21 +379,50 @@ class HomeViewModel(
             withTimeout(API_TIMEOUT_MS) {
                 repository.getPrayerTimes(latitude, longitude, settings.calculationMethod, settings.madhab)
             }.fold(
-                onSuccess = { handlePrayerTimesSuccess(it) },
-                onFailure = { e ->
-                    Log.e(TAG, "API error: ${e.message}", e)
+                onSuccess  = { handlePrayerTimesSuccess(it) },
+                onFailure  = { e ->
+                    Log.e(TAG, "API error", e)
                     _uiState.value = _uiState.value.copy(isLoading = false,
-                        error = "Failed to load prayer times: ${e.message}")
+                        error = "Failed to load prayer times. Please check your internet connection.")
                 }
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Timeout fetching prayer times", e)
+            Log.e(TAG, "Timeout", e)
             _uiState.value = _uiState.value.copy(isLoading = false,
                 error = "Connection timed out. Please check your internet and try again.")
         }
     }
 
+    /** Build PrayerTime list from cache strings — times are local so no TZ conversion needed. */
+    private fun buildPrayerTimesFromCache(cache: Map<String, String>, dateKey: String): List<PrayerTime> {
+        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getDefault()
+        }
+        fun ts(time: String) = try { fmt.parse("$dateKey $time")?.time ?: System.currentTimeMillis() }
+                               catch (_: Exception) { System.currentTimeMillis() }
+        return listOf(
+            PrayerTime(Prayer.FAJR,    cache["FAJR"]    ?: "", ts(cache["FAJR"]    ?: "00:00")),
+            PrayerTime(Prayer.DHUHR,   cache["DHUHR"]   ?: "", ts(cache["DHUHR"]   ?: "00:00")),
+            PrayerTime(Prayer.ASR,     cache["ASR"]     ?: "", ts(cache["ASR"]     ?: "00:00")),
+            PrayerTime(Prayer.MAGHRIB, cache["MAGHRIB"] ?: "", ts(cache["MAGHRIB"] ?: "00:00")),
+            PrayerTime(Prayer.ISHA,    cache["ISHA"]    ?: "", ts(cache["ISHA"]    ?: "00:00"))
+        )
+    }
+
     private suspend fun handlePrayerTimesSuccess(prayerTimes: List<PrayerTime>) {
+        // Cache today's times for offline use
+        if (prayerTimes.size == 5) {
+            userPreferences.saveCachedPrayerTimes(
+                fajr    = prayerTimes[0].time, dhuhr   = prayerTimes[1].time,
+                asr     = prayerTimes[2].time, maghrib = prayerTimes[3].time,
+                isha    = prayerTimes[4].time, dateKey = todayKey()
+            )
+        }
+        handlePrayerTimesSuccessNoCache(prayerTimes)
+    }
+
+    /** Same as handlePrayerTimesSuccess but skips writing cache (used when loading FROM cache). */
+    private suspend fun handlePrayerTimesSuccessNoCache(prayerTimes: List<PrayerTime>) {
         val completedToday = repository.getCompletedPrayersToday()
         val streak         = getPrayerStreakUseCase()
         val nextInfo       = getNextPrayerUseCase(prayerTimes)
@@ -253,17 +439,20 @@ class HomeViewModel(
         val settings  = userPreferences.userSettings.first()
         val scheduler = com.sujood.app.notifications.PrayerAlarmScheduler(cachedContext!!)
         val notif = Prayer.entries.map { p -> when (p) {
-            Prayer.FAJR -> settings.fajrNotificationEnabled; Prayer.DHUHR -> settings.dhuhrNotificationEnabled
-            Prayer.ASR  -> settings.asrNotificationEnabled;  Prayer.MAGHRIB -> settings.maghribNotificationEnabled
-            Prayer.ISHA -> settings.ishaNotificationEnabled
+            Prayer.FAJR    -> settings.fajrNotificationEnabled
+            Prayer.DHUHR   -> settings.dhuhrNotificationEnabled
+            Prayer.ASR     -> settings.asrNotificationEnabled
+            Prayer.MAGHRIB -> settings.maghribNotificationEnabled
+            Prayer.ISHA    -> settings.ishaNotificationEnabled
         }}.toBooleanArray()
-        // prayerLockEnabled = master toggle: if off, no prayer triggers a lock
         val lock = Prayer.entries.map { p ->
             if (!settings.prayerLockEnabled) false
             else when (p) {
-                Prayer.FAJR -> settings.fajrLockEnabled; Prayer.DHUHR -> settings.dhuhrLockEnabled
-                Prayer.ASR  -> settings.asrLockEnabled;  Prayer.MAGHRIB -> settings.maghribLockEnabled
-                Prayer.ISHA -> settings.ishaLockEnabled
+                Prayer.FAJR    -> settings.fajrLockEnabled
+                Prayer.DHUHR   -> settings.dhuhrLockEnabled
+                Prayer.ASR     -> settings.asrLockEnabled
+                Prayer.MAGHRIB -> settings.maghribLockEnabled
+                Prayer.ISHA    -> settings.ishaLockEnabled
             }
         }.toBooleanArray()
         scheduler.scheduleAllAlarms(prayerTimes, notif, lock, settings.gracePeriodMinutes)
