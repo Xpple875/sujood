@@ -26,12 +26,11 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.outlined.WbSunny
-import androidx.compose.material.icons.outlined.WbTwilight
-import androidx.compose.material.icons.outlined.Nightlight
-import androidx.compose.material.icons.outlined.NightsStay
-import androidx.compose.material.icons.outlined.LightMode
-import androidx.compose.material.icons.outlined.Mosque
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.Brightness3
+import androidx.compose.material.icons.filled.NightlightRound
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Flare
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -421,12 +420,13 @@ private fun PrayerRow(
             horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(modifier = Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(iconBg),
                 contentAlignment = Alignment.Center) {
+                // Material Icons Extended — guaranteed available in Compose 1.6 / BOM 2024.02
                 val prayerIcon = when (prayerTime.prayer) {
-                    Prayer.FAJR    -> androidx.compose.material.icons.outlined.WbTwilight
-                    Prayer.DHUHR   -> androidx.compose.material.icons.outlined.LightMode
-                    Prayer.ASR     -> androidx.compose.material.icons.outlined.WbSunny
-                    Prayer.MAGHRIB -> androidx.compose.material.icons.outlined.Nightlight
-                    Prayer.ISHA    -> androidx.compose.material.icons.outlined.NightsStay
+                    Prayer.FAJR    -> Icons.Filled.Flare          // sunrise burst
+                    Prayer.DHUHR   -> Icons.Filled.WbSunny        // full sun
+                    Prayer.ASR     -> Icons.Filled.WbSunny        // afternoon sun
+                    Prayer.MAGHRIB -> Icons.Filled.Brightness3    // crescent setting
+                    Prayer.ISHA    -> Icons.Filled.NightlightRound // night crescent
                 }
                 Icon(imageVector = prayerIcon, contentDescription = prayerTime.prayer.displayName,
                     tint = iconTint, modifier = Modifier.size(24.dp))
