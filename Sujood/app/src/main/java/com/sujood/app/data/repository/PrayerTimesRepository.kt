@@ -15,70 +15,46 @@ import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
-/**
- * Repository for prayer times data.
- * Handles data operations between API, cache, and UI.
- */
 class PrayerTimesRepository(
     private val apiService: AladhanApiService,
     private val prayerLogDao: PrayerLogDao
 ) {
-    private val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
-    private val dateKeyFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    private val dateFormat    = SimpleDateFormat("dd-MM-yyyy", Locale.US)
+    private val dateKeyFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
-    /**
-     * Fetches prayer times from API based on location.
-     *
-     * @param latitude User's latitude
-     * @param longitude User's longitude
-     * @param method Calculation method
-     * @param madhab School of jurisprudence
-     * @return List of PrayerTime objects
-     */
     suspend fun getPrayerTimes(
         latitude: Double,
         longitude: Double,
-        method: CalculationMethod = CalculationMethod.MAKKAH, // Default to Makkah/Dubai
+        method: CalculationMethod = CalculationMethod.MAKKAH,
         madhab: Madhab = Madhab.SHAFI
     ): Result<List<PrayerTime>> {
         return try {
             val response = apiService.getPrayerTimes(
-                latitude = latitude,
+                latitude  = latitude,
                 longitude = longitude,
-                method = method.code,
-                school = madhab.code
+                method    = method.code,
+                school    = madhab.code
             )
-            
-            val prayerTimes = parsePrayerTimesResponse(response)
-            Result.success(prayerTimes)
+            Result.success(parsePrayerTimesResponse(response))
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    /**
-     * Fetches prayer times from API based on city name.
-     *
-     * @param cityName Name of the city
-     * @param method Calculation method
-     * @param madhab School of jurisprudence
-     * @return List of PrayerTime objects
-     */
     suspend fun getPrayerTimesByCity(
         cityName: String,
-        method: CalculationMethod = CalculationMethod.MWL,
+        method: CalculationMethod = CalculationMethod.MAKKAH,
         madhab: Madhab = Madhab.SHAFI
     ): Result<List<PrayerTime>> {
         return try {
             val response = apiService.getPrayerTimesByCity(
-                city = cityName,
+                city   = cityName,
                 method = method.code,
                 school = madhab.code
             )
-            
-            val prayerTimes = parsePrayerTimesResponse(response)
-            Result.success(prayerTimes)
+            Result.success(parsePrayerTimesResponse(response))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -89,157 +65,103 @@ class PrayerTimesRepository(
     }
 
     /**
-     * Parses API response and converts to domain models.
+     * Parses API response into domain PrayerTime objects.
+     * Uses the timezone returned by the API (meta.timezone e.g. "Asia/Dubai")
+     * so timestamps are correct regardless of the device's timezone.
      */
     private fun parsePrayerTimesResponse(response: PrayerTimesResponse): List<PrayerTime> {
-        val timings = response.data.timings
-        val date = response.data.date
-        
-        // Parse the date for timestamp calculations
-        val dateString = date.gregorian.date
-        
+        val timings  = response.data.timings
+        val dateStr  = response.data.date.gregorian.date   // "dd-MM-yyyy"
+        val timezone = response.data.meta.timezone         // e.g. "Asia/Dubai"
+
+        fun t(raw: String)  = raw.substring(0, 5)
+        fun ts(raw: String) = parseTimeToTimestamp(raw, dateStr, timezone)
+
         return listOf(
-            PrayerTime(
-                prayer = Prayer.FAJR,
-                time = timings.fajr.substring(0, 5),
-                timestamp = parseTimeToTimestamp(timings.fajr, dateString)
-            ),
-            PrayerTime(
-                prayer = Prayer.DHUHR,
-                time = timings.dhuhr.substring(0, 5),
-                timestamp = parseTimeToTimestamp(timings.dhuhr, dateString)
-            ),
-            PrayerTime(
-                prayer = Prayer.ASR,
-                time = timings.asr.substring(0, 5),
-                timestamp = parseTimeToTimestamp(timings.asr, dateString)
-            ),
-            PrayerTime(
-                prayer = Prayer.MAGHRIB,
-                time = timings.maghrib.substring(0, 5),
-                timestamp = parseTimeToTimestamp(timings.maghrib, dateString)
-            ),
-            PrayerTime(
-                prayer = Prayer.ISHA,
-                time = timings.isha.substring(0, 5),
-                timestamp = parseTimeToTimestamp(timings.isha, dateString)
-            )
+            PrayerTime(Prayer.FAJR,    t(timings.fajr),    ts(timings.fajr)),
+            PrayerTime(Prayer.DHUHR,   t(timings.dhuhr),   ts(timings.dhuhr)),
+            PrayerTime(Prayer.ASR,     t(timings.asr),     ts(timings.asr)),
+            PrayerTime(Prayer.MAGHRIB, t(timings.maghrib), ts(timings.maghrib)),
+            PrayerTime(Prayer.ISHA,    t(timings.isha),    ts(timings.isha))
         )
     }
 
     /**
-     * Parses time string to Unix timestamp.
+     * Parses "HH:mm" + "dd-MM-yyyy" into a UTC Unix timestamp,
+     * treating the time as being in the prayer location's timezone.
+     * Aladhan sometimes appends " (GMT+X)" — we strip that first.
      */
-    private fun parseTimeToTimestamp(time: String, dateStr: String): Long {
+    private fun parseTimeToTimestamp(time: String, dateStr: String, timezone: String): Long {
         return try {
-            val fullDateTime = "$dateStr $time"
-            val format = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault())
-            format.parse(fullDateTime)?.time ?: System.currentTimeMillis()
+            val cleanTime = time.substringBefore(" ").trim().substring(0, 5)
+            val fmt = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone(timezone)
+            }
+            fmt.parse("$dateStr $cleanTime")?.time ?: System.currentTimeMillis()
         } catch (e: Exception) {
             System.currentTimeMillis()
         }
     }
 
-    /**
-     * Gets current date string in API format.
-     */
-    fun getCurrentDateString(): String {
-        return dateFormat.format(Date())
-    }
+    fun getCurrentDateString(): String = dateFormat.format(Date())
+    fun getCurrentDateKey(): String    = dateKeyFormat.format(Date())
 
-    /**
-     * Gets current date in key format (yyyy-MM-dd).
-     */
-    fun getCurrentDateKey(): String {
-        return dateKeyFormat.format(Date())
-    }
-
-    /**
-     * Logs a completed prayer.
-     */
     suspend fun logPrayerCompletion(prayer: Prayer): Long {
         val entity = PrayerLogEntity(
-            prayerName = prayer.name,
+            prayerName  = prayer.name,
             completedAt = System.currentTimeMillis(),
-            date = getCurrentDateKey()
+            date        = getCurrentDateKey()
         )
         return prayerLogDao.insertPrayerLog(entity)
     }
 
-    /**
-     * Checks if a prayer was completed today.
-     */
     suspend fun deletePrayerLog(prayer: Prayer) {
         prayerLogDao.deletePrayerLog(getCurrentDateKey(), prayer.name)
     }
 
-    suspend fun isPrayerCompletedToday(prayer: Prayer): Boolean {
-        return prayerLogDao.isPrayerCompleted(getCurrentDateKey(), prayer.name)
-    }
+    suspend fun isPrayerCompletedToday(prayer: Prayer): Boolean =
+        prayerLogDao.isPrayerCompleted(getCurrentDateKey(), prayer.name)
 
-    /**
-     * Gets all prayers completed today.
-     */
     suspend fun getCompletedPrayersToday(): List<Prayer> {
-        val logs = prayerLogDao.getPrayerLogsForDate(getCurrentDateKey())
-        return logs.mapNotNull { log ->
-            try {
-                Prayer.valueOf(log.prayerName)
-            } catch (e: Exception) {
-                null
-            }
+        return prayerLogDao.getPrayerLogsForDate(getCurrentDateKey()).mapNotNull { log ->
+            try { Prayer.valueOf(log.prayerName) } catch (_: Exception) { null }
         }
     }
 
-    /**
-     * Gets all prayer logs as a Flow.
-     */
     fun getAllPrayerLogs(): Flow<List<PrayerLog>> {
         return prayerLogDao.getAllPrayerLogs().map { entities ->
             entities.map { entity ->
                 PrayerLog(
-                    id = entity.id,
-                    prayer = Prayer.valueOf(entity.prayerName),
+                    id          = entity.id,
+                    prayer      = Prayer.valueOf(entity.prayerName),
                     completedAt = entity.completedAt,
-                    date = entity.date
+                    date        = entity.date
                 )
             }
         }
     }
 
-    /**
-     * Gets the current prayer streak (consecutive days with all 5 prayers completed).
-     * Walks backwards from today counting unbroken consecutive days.
-     */
     suspend fun getPrayerStreak(): Int {
-        val completedDates = prayerLogDao.getFullyCompletedDates() // descending
+        val completedDates = prayerLogDao.getFullyCompletedDates()
         if (completedDates.isEmpty()) return 0
-
-        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-        val cal = java.util.Calendar.getInstance()
-        val todayStr = fmt.format(cal.time)
+        val fmt  = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val cal  = java.util.Calendar.getInstance()
+        val todayStr     = fmt.format(cal.time)
         cal.add(java.util.Calendar.DAY_OF_YEAR, -1)
         val yesterdayStr = fmt.format(cal.time)
-
-        // Streak must start from today or yesterday (if today isn't done yet)
         val startDate = when {
-            completedDates.first() == todayStr -> todayStr
+            completedDates.first() == todayStr     -> todayStr
             completedDates.first() == yesterdayStr -> yesterdayStr
             else -> return 0
         }
-
         val checkCal = java.util.Calendar.getInstance()
         checkCal.time = fmt.parse(startDate) ?: return 0
-
         var streak = 0
         for (dateStr in completedDates) {
-            val expected = fmt.format(checkCal.time)
-            if (dateStr == expected) {
+            if (dateStr == fmt.format(checkCal.time)) {
                 streak++
                 checkCal.add(java.util.Calendar.DAY_OF_YEAR, -1)
-            } else {
-                break
-            }
+            } else break
         }
         return streak
     }

@@ -24,7 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.EditLocation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.Brightness3
@@ -108,6 +108,96 @@ fun HomeScreen(
         if (!locationPermission.status.isGranted) locationPermission.launchPermissionRequest()
     }
     LaunchedEffect(Unit) { delay(100); visible = true }
+
+    // ── Inline location picker ─────────────────────────────────────────────
+    var showLocationDialog by remember { mutableStateOf(false) }
+    if (showLocationDialog) {
+        var locQuery    by remember { mutableStateOf("") }
+        var locSelected by remember { mutableStateOf("") }
+        val locFm = LocalFocusManager.current
+        val locCities = listOf(
+            "Dubai","Abu Dhabi","Sharjah","Ajman","Al Ain",
+            "Riyadh","Jeddah","Mecca","Medina",
+            "London","Manchester","Birmingham",
+            "New York","Los Angeles","Chicago","Toronto",
+            "Cairo","Alexandria","Istanbul",
+            "Kuala Lumpur","Jakarta","Karachi","Lahore",
+            "Dhaka","Mumbai","Delhi",
+            "Doha","Kuwait City","Muscat","Manama","Amman",
+            "Lagos","Nairobi","Singapore","Sydney"
+        ).sorted()
+        val locFiltered = remember(locQuery) {
+            if (locQuery.length < 2) emptyList()
+            else locCities.filter { it.contains(locQuery, ignoreCase = true) }.take(6)
+        }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showLocationDialog = false },
+            title = { Text("Change Location", color = Color.White) },
+            text  = {
+                Column {
+                    androidx.compose.material3.OutlinedTextField(
+                        value        = locQuery,
+                        onValueChange = { locQuery = it; locSelected = "" },
+                        label        = { Text("Search city") },
+                        singleLine   = true,
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor   = PrimaryBlue,
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                            focusedTextColor     = Color.White,
+                            unfocusedTextColor   = Color.White
+                        )
+                    )
+                    if (locFiltered.isNotEmpty() && locSelected.isEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Column(modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                            .background(Color(0xFF1A1F35))
+                            .border(1.dp, Color.White.copy(alpha = 0.1f),
+                                androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                        ) {
+                            locFiltered.forEachIndexed { idx, city ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth()
+                                        .clickable { locSelected = city; locQuery = city; locFm.clearFocus() }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.LocationOn, null,
+                                        tint     = PrimaryBlue,
+                                        modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(city, fontSize = 13.sp, color = Color.White)
+                                }
+                                if (idx < locFiltered.lastIndex)
+                                    androidx.compose.material3.HorizontalDivider(
+                                        color = Color.White.copy(alpha = 0.05f))
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.Button(
+                    onClick = {
+                        val city = locSelected.ifEmpty { locQuery }.trim()
+                        if (city.isNotBlank()) {
+                            viewModel.fetchPrayerTimesByCity(context, city)
+                            showLocationDialog = false
+                        }
+                    },
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = PrimaryBlue)
+                ) { Text("Confirm") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = { showLocationDialog = false }
+                ) { Text("Cancel") }
+            },
+            containerColor = Color(0xFF0D1020)
+        )
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(BackgroundDark)) {
         Box(modifier = Modifier.fillMaxSize().background(
@@ -242,8 +332,11 @@ private fun HeroSection(
                     }
                 }
                 Box(modifier = Modifier.size(40.dp).clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
-                    Icon(imageVector = Icons.Default.Notifications, contentDescription = null,
+                    .background(Color.White.copy(alpha = 0.08f))
+                    .clickable { showLocationDialog = true },
+                    contentAlignment = Alignment.Center) {
+                    Icon(imageVector = Icons.Default.EditLocation,
+                        contentDescription = "Change location",
                         tint = Color.White, modifier = Modifier.size(22.dp))
                 }
             }

@@ -23,12 +23,13 @@ data class PrayerLog(
 )
 
 enum class CalculationMethod(val displayName: String, val code: Int) {
-    MWL("Muslim World League", 0),
-    ISNA("Islamic Society of North America", 1),
-    EGYPTIAN("Egyptian General Authority", 2),
-    MAKKAH("Umm Al-Qura University", 3),
-    KARACHI("University of Islamic Sciences Karachi", 5),
-    TEHRAN("Institute of Geophysics Tehran", 7)
+    KARACHI("University of Islamic Sciences, Karachi", 1),
+    ISNA("Islamic Society of North America", 2),
+    MWL("Muslim World League", 3),
+    MAKKAH("Umm Al-Qura, Makkah", 4),
+    EGYPTIAN("Egyptian General Authority of Survey", 5),
+    GULF("Gulf Region (Kuwait / Qatar)", 8),
+    DUBAI("Dubai", 16)
 }
 
 enum class Madhab(val displayName: String, val code: Int) {

@@ -73,71 +73,41 @@ class HomeViewModel(
 
     fun initializeAndRefresh(context: Context) {
         cachedContext = context.applicationContext
-        // Called on every app open — always refresh from network using saved or GPS location
+        // Skip re-fetch if prayer times are already loaded — prevents GPS/network
+        // call every time the user navigates back to the Home tab.
+        if (_uiState.value.prayerTimes.isNotEmpty()) return
+
         viewModelScope.launch {
             val settings = userPreferences.userSettings.first()
             when {
                 settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0 -> {
-                    // We have a saved location — use it to refresh silently
                     _uiState.value = _uiState.value.copy(isLoading = true, error = null)
                     fetchPrayerTimesByLocation(settings.savedLatitude, settings.savedLongitude)
                 }
                 settings.savedCity.isNotEmpty() -> {
-                    // We have a saved city name — try searching for its coordinates for better accuracy
                     _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-                    try {
-                        val searchResult = repository.searchCity(settings.savedCity)
-                        val cityData = searchResult.data.firstOrNull()
-                        if (cityData != null) {
-                            fetchPrayerTimesByLocation(cityData.latitude, cityData.longitude)
-                        } else {
-                            // Fallback to direct city search if coordinate search fails
-                            val result = repository.getPrayerTimesByCity(settings.savedCity)
-                            result.fold(onSuccess = { handlePrayerTimesSuccess(it) }, onFailure = {
-                                _uiState.value = _uiState.value.copy(isLoading = false, error = "Could not load times for ${settings.savedCity}")
-                            })
+                    // Strip country suffix (e.g. "Dubai, UAE" -> "Dubai")
+                    val bareCity = settings.savedCity.substringBefore(",").trim()
+                    val result = repository.getPrayerTimesByCity(
+                        cityName = bareCity,
+                        method   = settings.calculationMethod,
+                        madhab   = settings.madhab
+                    )
+                    result.fold(
+                        onSuccess = { handlePrayerTimesSuccess(it) },
+                        onFailure = {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                error = "Could not load times for ${settings.savedCity}"
+                            )
                         }
-                    } catch (e: Exception) {
-                         _uiState.value = _uiState.value.copy(isLoading = false)
-                    }
+                    )
                 }
                 else -> fetchPrayerTimes(context)
             }
         }
     }
 
-    private fun loadUserData() {
-        viewModelScope.launch {
-            userPreferences.userSettings.collect { settings ->
-                _uiState.value = _uiState.value.copy(
-                    userName = settings.name,
-                    settings = settings
-                )
-            }
-        }
-    }
-
-    private fun startTimeUpdates() {
-        viewModelScope.launch {
-            while (true) {
-                delay(1000)
-                updateCountdown()
-            }
-        }
-    }
-
-    private fun updateCountdown() {
-        val prayerTimes = _uiState.value.prayerTimes
-        if (prayerTimes.isNotEmpty()) {
-            val nextInfo = getNextPrayerUseCase(prayerTimes)
-            _uiState.value = _uiState.value.copy(
-                currentTimeMillis = System.currentTimeMillis(),
-                nextPrayerInfo = nextInfo
-            )
-        }
-    }
-
-    @SuppressLint("MissingPermission")
     fun fetchPrayerTimes(context: Context) {
         cachedContext = context.applicationContext
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
@@ -205,48 +175,60 @@ class HomeViewModel(
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val settings = userPreferences.userSettings.first()
+            // Strip country suffix e.g. "Dubai, UAE" -> "Dubai"
+            val bareCity = cityName.substringBefore(",").trim()
 
             try {
-                // Step 1: Search for city coordinates (more accurate for calculation methods)
-                val searchResult = repository.searchCity(cityName)
-                val cityData = searchResult.data.firstOrNull()
-
-                if (cityData != null) {
-                    // Save the coordinates and city name
-                    viewModelScope.launch {
-                        userPreferences.saveLocationSettings(
-                            useGps = false,
-                            city = cityData.name,
-                            country = cityData.country,
-                            latitude = cityData.latitude,
-                            longitude = cityData.longitude
-                        )
-                    }
-                    fetchPrayerTimesByLocation(cityData.latitude, cityData.longitude)
-                } else {
-                    // Step 2: Fallback to direct city name API if coordinates search fails
-                    val result = repository.getPrayerTimesByCity(cityName)
-                    result.fold(
-                        onSuccess = { prayerTimes ->
-                            viewModelScope.launch {
-                                userPreferences.saveLocationSettings(
-                                    useGps = false,
-                                    city = cityName,
-                                    country = "",
-                                    latitude = 0.0,
-                                    longitude = 0.0
-                                )
-                            }
-                            handlePrayerTimesSuccess(prayerTimes)
-                        },
-                        onFailure = { error ->
-                             _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                error = "Could not find prayer times for \"$cityName\". Please try another city."
+                // Try /timingsByCity with the user's saved calculation method
+                val result = repository.getPrayerTimesByCity(
+                    cityName = bareCity,
+                    method   = settings.calculationMethod,
+                    madhab   = settings.madhab
+                )
+                result.fold(
+                    onSuccess = { prayerTimes ->
+                        viewModelScope.launch {
+                            userPreferences.saveLocationSettings(
+                                useGps    = false,
+                                city      = cityName,
+                                country   = "",
+                                latitude  = 0.0,
+                                longitude = 0.0
                             )
                         }
-                    )
-                }
+                        handlePrayerTimesSuccess(prayerTimes)
+                    },
+                    onFailure = {
+                        // Fallback: coordinate lookup
+                        try {
+                            val searchResult = repository.searchCity(bareCity)
+                            val cityData     = searchResult.data.firstOrNull()
+                            if (cityData != null) {
+                                viewModelScope.launch {
+                                    userPreferences.saveLocationSettings(
+                                        useGps    = false,
+                                        city      = cityData.name,
+                                        country   = cityData.country,
+                                        latitude  = cityData.latitude,
+                                        longitude = cityData.longitude
+                                    )
+                                }
+                                fetchPrayerTimesByLocation(cityData.latitude, cityData.longitude)
+                            } else {
+                                _uiState.value = _uiState.value.copy(
+                                    isLoading = false,
+                                    error = "Could not find prayer times for \"$cityName\". Try another city."
+                                )
+                            }
+                        } catch (e2: Exception) {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                error = "Could not find prayer times for \"$cityName\"."
+                            )
+                        }
+                    }
+                )
             } catch (e: Exception) {
                 Log.e(TAG, "Exception fetching by city", e)
                 _uiState.value = _uiState.value.copy(
