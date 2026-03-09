@@ -487,52 +487,46 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPrayerIcon(pray
             }
         }
         Prayer.ASR -> {
-            // Orange sun sitting on horizon line — matches screenshot
-            val cx = w / 2f; val cy = h * 0.56f; val r = w * 0.23f
-            // Filled sun
-            drawCircle(color = tint.copy(alpha = 0.22f), radius = r, center = Offset(cx, cy))
-            drawCircle(color = tint, radius = r, center = Offset(cx, cy), style = Stroke(width = sw))
-            // Horizon line through lower sun
-            drawLine(tint, Offset(0f, cy + r * 0.25f), Offset(w, cy + r * 0.25f),
-                strokeWidth = sw * 0.65f, cap = StrokeCap.Round)
-            // Rays fanning upward only
-            listOf(-60f, -30f, 0f, 30f, 60f).forEach { angle ->
-                val rad = Math.toRadians(angle.toDouble() - 90)
+            // Afternoon sun: partly below horizon, warm amber rays fanning upward only
+            val cx = w / 2f; val cy = h * 0.63f; val r = w * 0.26f
+            // Subtle filled glow
+            drawCircle(color = tint.copy(alpha = 0.18f), radius = r * 1.3f, center = Offset(cx, cy))
+            // Sun disc
+            drawCircle(color = tint, radius = r, center = Offset(cx, cy))
+            // Horizon line through sun
+            drawLine(tint, Offset(0f, cy - r * 0.1f), Offset(w, cy - r * 0.1f),
+                strokeWidth = sw * 0.6f, cap = StrokeCap.Round)
+            // 5 rays fanning upward from sun
+            listOf(-50f, -25f, 0f, 25f, 50f).forEach { angle ->
+                val rad = Math.toRadians(angle.toDouble() - 90.0)
                 drawLine(tint,
                     Offset(cx + (r + w*0.05f)*cos(rad).toFloat(), cy + (r + h*0.05f)*sin(rad).toFloat()),
-                    Offset(cx + (r + w*0.16f)*cos(rad).toFloat(), cy + (r + h*0.16f)*sin(rad).toFloat()),
+                    Offset(cx + (r + w*0.18f)*cos(rad).toFloat(), cy + (r + h*0.18f)*sin(rad).toFloat()),
                     strokeWidth = sw * 0.75f, cap = StrokeCap.Round)
             }
         }
         Prayer.MAGHRIB -> {
-            // Coral/red filled crescent moon — matches screenshot
+            // Proper crescent: filled moon circle minus offset cutout, all via Path
             val cx = w * 0.50f; val cy = h * 0.50f; val r = w * 0.30f
-            val moonPath = Path().apply { addOval(Rect(cx - r, cy - r, cx + r, cy + r)) }
-            val cutX = cx + r * 0.38f; val cutY = cy - r * 0.08f; val cutR = r * 0.82f
-            val cutPath = Path().apply { addOval(Rect(cutX - cutR, cutY - cutR, cutX + cutR, cutY + cutR)) }
-            drawPath(moonPath, tint)
-            // Overdraw cutout with exact card background colour
-            drawPath(cutPath, Color(0xFF4C0519).copy(alpha = 0.7f))
-            // Re-outline the visible arc
-            drawArc(color = tint, startAngle = -30f, sweepAngle = 240f, useCenter = false,
-                topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
-                style = Stroke(width = sw * 0.7f, cap = StrokeCap.Round))
+            val cutX = cx + r * 0.36f; val cutY = cy - r * 0.06f; val cutR = r * 0.80f
+            // We draw the full disc first
+            drawCircle(color = tint, radius = r, center = Offset(cx, cy))
+            // Then overdraw the cutout using the exact card background colour for this prayer
+            // (Color(0xFF4C0519) is the Maghrib card bg — same as `iconBg` in PrayerRow)
+            drawCircle(color = Color(0xFF4C0519), radius = cutR, center = Offset(cutX, cutY))
+            // Thin rim so the shape reads clearly at small sizes
+            drawCircle(color = tint, radius = r, center = Offset(cx, cy),
+                style = Stroke(width = sw * 0.5f))
         }
         Prayer.ISHA -> {
-            // Deep-blue filled crescent + diamond star — matches screenshot
-            val cx = w * 0.44f; val cy = h * 0.52f; val r = w * 0.28f
-            val moonPath = Path().apply { addOval(Rect(cx - r, cy - r, cx + r, cy + r)) }
-            val cutX = cx + r * 0.40f; val cutY = cy - r * 0.06f; val cutR = r * 0.78f
-            val cutPath = Path().apply { addOval(Rect(cutX - cutR, cutY - cutR, cutX + cutR, cutY + cutR)) }
-            drawPath(moonPath, tint)
-            drawPath(cutPath, Color(0xFF1E1B4B).copy(alpha = 0.7f))
-            // Diamond star top-right
-            val sx = w * 0.80f; val sy = h * 0.20f; val sr = w * 0.095f
-            val starPath = Path().apply {
-                moveTo(sx, sy - sr); lineTo(sx + sr * 0.38f, sy)
-                lineTo(sx, sy + sr); lineTo(sx - sr * 0.38f, sy); close()
-            }
-            drawPath(starPath, tint)
+            // Moon + small star
+            val cx = w * 0.48f; val cy = h * 0.52f; val r = w * 0.28f
+            drawArc(color = tint, startAngle = 40f, sweepAngle = 280f, useCenter = false,
+                topLeft = Offset(cx - r, cy - r), size = Size(r * 2, r * 2),
+                style = Stroke(width = sw, cap = StrokeCap.Round))
+            // Small star top-right
+            drawCircle(color = tint, radius = w * 0.07f,
+                center = Offset(w * 0.80f, h * 0.22f))
         }
     }
 }

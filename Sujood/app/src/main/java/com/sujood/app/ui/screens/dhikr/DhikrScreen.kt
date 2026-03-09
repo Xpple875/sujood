@@ -24,7 +24,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -34,8 +33,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.graphics.drawable.toBitmap
 import com.sujood.app.data.local.datastore.UserPreferences
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import com.sujood.app.domain.model.LockMode
 import com.sujood.app.domain.model.UserSettings
 import com.sujood.app.service.PrayerLockOverlayService
@@ -51,19 +52,20 @@ private val TextDim        = Color(0xFF475569)
 private val CardBg         = Color(0xFF0D1020)
 
 // The apps shown in the Specific Apps picker
-private data class AppEntry(val name: String, val packageName: String, val emoji: String)
+private data class AppEntry(val name: String, val packageName: String, val iconUrl: String, val fallbackColor: Long)
 
+// SimpleIcons CDN: https://simpleicons.org — icons are MIT/CC0 licensed for use
 private val COMMON_APPS = listOf(
-    AppEntry("TikTok",     "com.zhiliaoapp.musically",        "🎵"),
-    AppEntry("Instagram",  "com.instagram.android",           "📸"),
-    AppEntry("YouTube",    "com.google.android.youtube",      "▶️"),
-    AppEntry("Twitter / X","com.twitter.android",             "🐦"),
-    AppEntry("Snapchat",   "com.snapchat.android",            "👻"),
-    AppEntry("Facebook",   "com.facebook.katana",             "👍"),
-    AppEntry("WhatsApp",   "com.whatsapp",                    "💬"),
-    AppEntry("Reddit",     "com.reddit.frontpage",            "🤖"),
-    AppEntry("Netflix",    "com.netflix.mediaclient",         "🎬"),
-    AppEntry("Games",      "com.android.vending.games",       "🎮"),
+    AppEntry("TikTok",      "com.zhiliaoapp.musically",   "https://cdn.simpleicons.org/tiktok/ffffff",   0xFF010101),
+    AppEntry("Instagram",   "com.instagram.android",      "https://cdn.simpleicons.org/instagram/ffffff",0xFFE1306C),
+    AppEntry("YouTube",     "com.google.android.youtube", "https://cdn.simpleicons.org/youtube/ffffff",  0xFFFF0000),
+    AppEntry("X / Twitter", "com.twitter.android",        "https://cdn.simpleicons.org/x/ffffff",        0xFF000000),
+    AppEntry("Snapchat",    "com.snapchat.android",       "https://cdn.simpleicons.org/snapchat/ffffff", 0xFFFFFC00),
+    AppEntry("Facebook",    "com.facebook.katana",        "https://cdn.simpleicons.org/facebook/ffffff", 0xFF1877F2),
+    AppEntry("WhatsApp",    "com.whatsapp",               "https://cdn.simpleicons.org/whatsapp/ffffff", 0xFF25D366),
+    AppEntry("Reddit",      "com.reddit.frontpage",       "https://cdn.simpleicons.org/reddit/ffffff",   0xFFFF4500),
+    AppEntry("Netflix",     "com.netflix.mediaclient",    "https://cdn.simpleicons.org/netflix/ffffff",  0xFFE50914),
+    AppEntry("Twitch",      "tv.twitch.android.app",      "https://cdn.simpleicons.org/twitch/ffffff",   0xFF9146FF),
 )
 
 @Composable
@@ -181,7 +183,20 @@ fun DhikrScreen() {
                                             horizontalArrangement = Arrangement.SpaceBetween) {
                                             Row(verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                                AppIconBox(packageName = app.packageName, appName = app.name, isLocked = isLocked)
+                                                Box(
+                                                    modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+                                                        .background(Color(app.fallbackColor)),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    AsyncImage(
+                                                        model = ImageRequest.Builder(LocalContext.current)
+                                                            .data(app.iconUrl)
+                                                            .crossfade(true)
+                                                            .build(),
+                                                        contentDescription = app.name,
+                                                        modifier = Modifier.size(22.dp)
+                                                    )
+                                                }
                                                 Text(app.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White)
                                             }
                                             Switch(checked = isLocked,
@@ -322,51 +337,6 @@ fun DhikrScreen() {
 }
 
 // ── Reusable composables ──────────────────────────────────────────────────────
-
-@Composable
-private fun AppIconBox(packageName: String, appName: String, isLocked: Boolean) {
-    val context = LocalContext.current
-    val icon = remember(packageName) {
-        try { context.packageManager.getApplicationIcon(packageName) } catch (e: Exception) { null }
-    }
-    val bgColor = if (isLocked) PrimaryBlue.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.05f)
-    Box(
-        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(bgColor),
-        contentAlignment = Alignment.Center
-    ) {
-        if (icon != null) {
-            val bmp = remember(icon) {
-                android.graphics.Bitmap.createScaledBitmap(
-                    icon.toBitmap(), 72, 72, true
-                ).asImageBitmap()
-            }
-            androidx.compose.foundation.Image(
-                bitmap = bmp,
-                contentDescription = appName,
-                modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp))
-            )
-        } else {
-            // Fallback: brand-coloured initial
-            val fallbackBg = when (appName.first().uppercaseChar()) {
-                'T' -> if (appName.contains("Tik")) Color(0xFF010101) else Color(0xFF1DA1F2)
-                'I' -> Color(0xFFE1306C)
-                'Y' -> Color(0xFFFF0000)
-                'S' -> Color(0xFFFFFC00)
-                'F' -> Color(0xFF1877F2)
-                'W' -> Color(0xFF25D366)
-                'R' -> Color(0xFFFF4500)
-                'N' -> Color(0xFFE50914)
-                else -> PrimaryBlue
-            }
-            Box(modifier = Modifier.fillMaxSize().background(fallbackBg, RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center) {
-                Text(appName.first().uppercase(), fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (appName.startsWith("S") && appName.contains("nap")) Color.Black else Color.White)
-            }
-        }
-    }
-}
 
 @Composable
 private fun GlassCard(content: @Composable () -> Unit) {

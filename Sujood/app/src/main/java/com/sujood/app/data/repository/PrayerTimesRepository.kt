@@ -65,25 +65,18 @@ class PrayerTimesRepository(
      * @param madhab School of jurisprudence
      * @return List of PrayerTime objects
      */
-    /**
-     * Accepts "Dubai" or "Dubai, UAE" — splits on comma and passes country separately.
-     * This prevents HTTP 404 from the Aladhan timingsByCity endpoint.
-     */
     suspend fun getPrayerTimesByCity(
         cityName: String,
-        method: CalculationMethod = CalculationMethod.MAKKAH,
+        method: CalculationMethod = CalculationMethod.MWL,
         madhab: Madhab = Madhab.SHAFI
     ): Result<List<PrayerTime>> {
         return try {
-            val parts   = cityName.split(",", limit = 2)
-            val city    = parts[0].trim()
-            val country = if (parts.size > 1) parts[1].trim() else null
             val response = apiService.getPrayerTimesByCity(
-                city    = city,
-                country = country,
-                method  = method.code,
-                school  = madhab.code
+                city = cityName,
+                method = method.code,
+                school = madhab.code
             )
+            
             val prayerTimes = parsePrayerTimesResponse(response)
             Result.success(prayerTimes)
         } catch (e: Exception) {
@@ -176,6 +169,10 @@ class PrayerTimesRepository(
     /**
      * Checks if a prayer was completed today.
      */
+    suspend fun deletePrayerLog(prayer: Prayer) {
+        prayerLogDao.deletePrayerLog(getCurrentDateKey(), prayer.name)
+    }
+
     suspend fun isPrayerCompletedToday(prayer: Prayer): Boolean {
         return prayerLogDao.isPrayerCompleted(getCurrentDateKey(), prayer.name)
     }

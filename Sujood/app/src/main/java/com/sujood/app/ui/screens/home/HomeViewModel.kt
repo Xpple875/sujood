@@ -383,14 +383,21 @@ class HomeViewModel(
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    fun logPrayerCompletion(prayer: Prayer) {
+    fun logPrayerCompletion(prayer: Prayer) = togglePrayerCompletion(prayer)
+
+    /** Tick = log completion. Tick again = undo (delete) and recalc streak. */
+    fun togglePrayerCompletion(prayer: Prayer) {
         viewModelScope.launch {
-            // logPrayerCompletionUseCase checks for duplicates before inserting
-            logPrayerCompletionUseCase(prayer)
-
+            val alreadyDone = _uiState.value.completedPrayersToday.contains(prayer)
+            if (alreadyDone) {
+                // Untick — remove from DB
+                repository.deletePrayerLog(prayer)
+            } else {
+                // Tick — insert via use case (handles duplicates)
+                logPrayerCompletionUseCase(prayer)
+            }
             val completedToday = repository.getCompletedPrayersToday()
-            val streak = getPrayerStreakUseCase()
-
+            val streak         = getPrayerStreakUseCase()
             _uiState.value = _uiState.value.copy(
                 completedPrayersToday = completedToday,
                 streakDays = streak
