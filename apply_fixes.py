@@ -1030,14 +1030,15 @@ fun SettingsScreen(
                                     val app = context.applicationContext as SujoodApplication
                                     val dao = app.database.prayerLogDao()
                                     // Collect all logs via a one-shot snapshot
-                                    val logs = kotlinx.coroutines.flow.first(dao.getAllPrayerLogs())
+                                    val logs = dao.getAllPrayerLogs().first()
                                     if (logs.isEmpty()) {
                                         exportStatus = "No prayer history yet"
                                         return@launch
                                     }
                                     val dateFmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
                                     val sb = StringBuilder("Date,Prayer,Completed At\n")
-                                    logs.sortedByDescending { it.completedAt }.forEach { log ->
+                                    val sortedLogs = logs.sortedByDescending { it.completedAt }
+                                    sortedLogs.forEach { log ->
                                         sb.append("${log.date},${log.prayerName},${dateFmt.format(Date(log.completedAt))}\n")
                                     }
                                     val fileName = "sujood_prayer_history_${SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())}.csv"
