@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -186,7 +187,7 @@ fun SettingsScreen(
         .background(Brush.radialGradient(listOf(PrimaryBlue.copy(alpha = 0.15f), Color.Transparent),
             center = androidx.compose.ui.geometry.Offset(0f, 0f), radius = 1000f))) {
 
-        LazyColumn(modifier = Modifier.fillMaxSize(),
+        LazyColumn(modifier = Modifier.fillMaxSize().statusBarsPadding(),
             contentPadding = PaddingValues(bottom = 120.dp)) {
 
             item {
