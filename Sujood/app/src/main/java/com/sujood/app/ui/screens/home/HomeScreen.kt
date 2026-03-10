@@ -211,7 +211,7 @@ fun HomeScreen(
                 }
                 item {
                     AnimatedVisibility(visible = visible, enter = fadeIn(tween(500, delayMillis = 100))) {
-                        StreakAndDotsCard(uiState.streakDays, uiState.prayerTimes, uiState.completedPrayersToday.toSet(), 
+                        StreakAndDotsCard(uiState.streakDays, uiState.prayerTimes, uiState.completedPrayersToday.toSet(),
                             Modifier.padding(horizontal = 16.dp, vertical = 20.dp))
                     }
                 }
@@ -297,15 +297,14 @@ private fun HeroSection(
             }
 
             Spacer(Modifier.height(32.dp))
-            
-            // Layered Arc and Pill (Z-index overlap)
-            Box(contentAlignment = Alignment.BottomCenter) {
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 SunArcWidget(
                     Modifier.fillMaxWidth(0.48f).height(54.dp),
                     prayerTimes, completedPrayers, nextPrayerInfo
                 )
-                // Pushed up slightly and wider
-                NextPrayerPill(nextPrayerInfo, Modifier.padding(bottom = 8.dp).width(190.dp))
+                Spacer(Modifier.height(4.dp))
+                NextPrayerPill(nextPrayerInfo, Modifier.width(200.dp))
             }
         }
     }
@@ -322,17 +321,17 @@ private fun SunArcWidget(modifier: Modifier, prayerTimes: List<PrayerTime>,
         val cx = size.width / 2f
         val cy = size.height + (size.height * 0.15f) // Move center down slightly
         val r = size.width * 0.48f // Slightly larger radius
-        
+
         // Dotted arc — made "more solid" and thicker per user feedback
         drawPath(Path().apply {
             addArc(Rect(cx - r, cy - r, cx + r, cy + r), 180f, 180f)
         }, Color.White.copy(alpha = 0.35f), style = Stroke(4f, // Thicker stroke
             pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 16f)))) // Longer gaps
-        
+
         val ang = Math.toRadians(180.0 + progress * 180.0)
         val sx = cx + r * cos(ang).toFloat()
         val sy = cy + r * sin(ang).toFloat()
-        
+
         // Sun with bigger glow
         drawCircle(Brush.radialGradient(listOf(Color(0xFFFBBF24).copy(alpha = 0.45f), Color.Transparent),
             Offset(sx, sy), 56f), 56f, Offset(sx, sy))
