@@ -154,16 +154,28 @@ fun QiblaScreen() {
 
     val h = if (heading.isNaN()) 0f else heading
 
+    // Unwrapped targets — accumulate via shortArc so animation always takes
+    // the short path and never spins 350° when crossing the 0/360 boundary.
+    var unwrappedRose   by remember { mutableFloatStateOf(-h) }
+    var unwrappedNeedle by remember { mutableFloatStateOf((qiblaDirection - h + 360f) % 360f) }
+
+    val targetRose   = -h
+    val targetNeedle = (qiblaDirection - h + 360f) % 360f
+
+    // Step each unwrapped value forward by the shortest arc from its current wrapped position
+    unwrappedRose   += shortArc((unwrappedRose   % 360f + 360f) % 360f, (targetRose   % 360f + 360f) % 360f)
+    unwrappedNeedle += shortArc((unwrappedNeedle % 360f + 360f) % 360f, targetNeedle)
+
     // Rose counter-rotates to keep North pointing up
     val roseAngle by animateFloatAsState(
-        targetValue   = -h,
+        targetValue   = unwrappedRose,
         animationSpec = spring(Spring.DampingRatioNoBouncy, Spring.StiffnessLow),
         label         = "rose"
     )
 
     // Needle points at Qibla relative to screen-top
     val needleAngle by animateFloatAsState(
-        targetValue   = (qiblaDirection - h + 360f) % 360f,
+        targetValue   = unwrappedNeedle,
         animationSpec = spring(Spring.DampingRatioNoBouncy, Spring.StiffnessLow),
         label         = "needle"
     )
