@@ -1,13 +1,157 @@
-import os
+"""
+Sujood App Icon Generator
+-------------------------
+Rewrites ALL icon files (PNGs + XMLs) so Android picks up the new icon.
+Run from your repo root (same folder as .git):
+
+    pip install Pillow
+    python generate_icon.py
+
+Then:
+    git add .
+    git commit -m "feat: update app icon"
+    git push
+    cd Sujood && ./gradlew assembleDebug
+"""
+
+import os, sys
+from PIL import Image, ImageDraw
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-dest = os.path.join(ROOT, "Sujood", "app", "src", "main", "java",
-                    "com", "sujood", "app", "ui", "screens", "qibla", "QiblaScreen.kt")
+RES  = os.path.join(ROOT, "Sujood", "app", "src", "main", "res")
 
-content = 'package com.sujood.app.ui.screens.qibla\n\nimport android.content.Context\nimport android.hardware.Sensor\nimport android.hardware.SensorEvent\nimport android.hardware.SensorEventListener\nimport android.hardware.SensorManager\nimport android.location.LocationManager\nimport androidx.compose.animation.core.Spring\nimport androidx.compose.animation.core.animateFloatAsState\nimport androidx.compose.animation.core.spring\nimport androidx.compose.foundation.Canvas\nimport androidx.compose.foundation.background\nimport androidx.compose.foundation.border\nimport androidx.compose.foundation.layout.Arrangement\nimport androidx.compose.foundation.layout.Box\nimport androidx.compose.foundation.layout.Column\nimport androidx.compose.foundation.layout.Spacer\nimport androidx.compose.foundation.layout.fillMaxSize\nimport androidx.compose.foundation.layout.height\nimport androidx.compose.foundation.layout.padding\nimport androidx.compose.foundation.layout.size\nimport androidx.compose.foundation.shape.CircleShape\nimport androidx.compose.foundation.shape.RoundedCornerShape\nimport androidx.compose.material.icons.Icons\nimport androidx.compose.material.icons.filled.Mosque\nimport androidx.compose.material3.Icon\nimport androidx.compose.material3.MaterialTheme\nimport androidx.compose.material3.Text\nimport androidx.compose.runtime.Composable\nimport androidx.compose.runtime.DisposableEffect\nimport androidx.compose.runtime.LaunchedEffect\nimport androidx.compose.runtime.getValue\nimport androidx.compose.runtime.mutableFloatStateOf\nimport androidx.compose.runtime.mutableStateOf\nimport androidx.compose.runtime.remember\nimport androidx.compose.runtime.setValue\nimport androidx.compose.ui.Alignment\nimport androidx.compose.ui.Modifier\nimport androidx.compose.ui.draw.clip\nimport androidx.compose.ui.draw.rotate\nimport androidx.compose.ui.draw.scale\nimport androidx.compose.ui.geometry.Offset\nimport androidx.compose.ui.graphics.Brush\nimport androidx.compose.ui.graphics.Color\nimport androidx.compose.ui.graphics.Path\nimport androidx.compose.ui.graphics.drawscope.Stroke\nimport androidx.compose.ui.platform.LocalContext\nimport androidx.compose.ui.text.font.FontWeight\nimport androidx.compose.ui.text.style.TextAlign\nimport androidx.compose.ui.unit.dp\nimport com.sujood.app.data.local.datastore.UserPreferences\nimport com.sujood.app.ui.components.AnimatedGradientBackground\nimport com.sujood.app.ui.theme.LavenderGlow\nimport com.sujood.app.ui.theme.SoftPurple\nimport com.sujood.app.ui.theme.TextSecondary\nimport com.sujood.app.ui.theme.WarmAmber\nimport kotlin.math.atan2\nimport kotlin.math.cos\nimport kotlin.math.roundToInt\nimport kotlin.math.sin\nimport kotlinx.coroutines.flow.first\n\n// ── How the compass works ─────────────────────────────────────────────────────\n// ONE state variable: `heading` — phone bearing 0-360 degrees, smoothed.\n//\n// Compass rose:  rotates by -heading  →  North stays pointing up on screen.\n// Needle:        rotates by (qiblaDirection - heading)  →  points at Qibla\n//                relative to whatever direction the screen faces.\n//\n// No unbounded accumulated floats. No double-subtraction bugs. Simple and correct.\n// ─────────────────────────────────────────────────────────────────────────────\n\nprivate const val LP = 0.15f\n\n/** Shortest signed arc from `from` to `to` in degrees, result in [-180, 180]. */\nprivate fun shortArc(from: Float, to: Float): Float =\n    ((to - from + 540f) % 360f) - 180f\n\n@Composable\nfun QiblaScreen() {\n    val context         = LocalContext.current\n    val userPreferences = remember { UserPreferences(context) }\n\n    var qiblaDirection by remember { mutableFloatStateOf(0f) }\n    var isCalibrated   by remember { mutableStateOf(false) }\n    var statusMessage  by remember { mutableStateOf("Initialising sensors...") }\n\n    LaunchedEffect(Unit) {\n        val settings = userPreferences.userSettings.first()\n        when {\n            settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0 -> {\n                qiblaDirection = qibla(settings.savedLatitude, settings.savedLongitude)\n                statusMessage  = "Location loaded"\n            }\n            settings.savedCity.isNotEmpty() -> {\n                try {\n                    val lm  = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager\n                    val loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)\n                        ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)\n                    if (loc != null) {\n                        qiblaDirection = qibla(loc.latitude, loc.longitude)\n                        statusMessage  = "Location from GPS"\n                    } else {\n                        statusMessage = "Open Home tab to set your location"\n                    }\n                } catch (_: Exception) {\n                    statusMessage = "Open Home tab to set your location"\n                }\n            }\n            else -> statusMessage = "Open Home tab to set your location"\n        }\n    }\n\n    // Smoothed phone heading in 0-360 degrees. NaN until first sensor reading.\n    var heading by remember { mutableFloatStateOf(Float.NaN) }\n\n    DisposableEffect(Unit) {\n        val sm    = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager\n        val accel = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)\n        val mag   = sm.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)\n        var lpA: FloatArray? = null\n        var lpM: FloatArray? = null\n\n        val listener = object : SensorEventListener {\n            override fun onSensorChanged(event: SensorEvent) {\n                when (event.sensor.type) {\n                    Sensor.TYPE_ACCELEROMETER -> lpA = lpA?.let { p ->\n                        FloatArray(3) { i -> p[i] + LP * (event.values[i] - p[i]) }\n                    } ?: event.values.clone()\n                    Sensor.TYPE_MAGNETIC_FIELD -> lpM = lpM?.let { p ->\n                        FloatArray(3) { i -> p[i] + LP * (event.values[i] - p[i]) }\n                    } ?: event.values.clone()\n                }\n                val a = lpA ?: return\n                val m = lpM ?: return\n                val R = FloatArray(9); val I = FloatArray(9)\n                if (!SensorManager.getRotationMatrix(R, I, a, m)) return\n                val orient = FloatArray(3)\n                SensorManager.getOrientation(R, orient)\n                val raw = ((Math.toDegrees(orient[0].toDouble()).toFloat()) + 360f) % 360f\n                heading = if (heading.isNaN()) raw\n                          else ((heading + LP * shortArc(heading, raw)) + 360f) % 360f\n            }\n            override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {\n                if (sensor.type == Sensor.TYPE_MAGNETIC_FIELD)\n                    isCalibrated = accuracy >= SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM\n            }\n        }\n        accel?.let { sm.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }\n        mag?.let   { sm.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }\n        onDispose  { sm.unregisterListener(listener) }\n    }\n\n    val h = if (heading.isNaN()) 0f else heading\n\n    // Unwrapped targets — accumulate via shortArc so animation always takes\n    // the short path and never spins 350° when crossing the 0/360 boundary.\n    var unwrappedRose   by remember { mutableFloatStateOf(-h) }\n    var unwrappedNeedle by remember { mutableFloatStateOf((qiblaDirection - h + 360f) % 360f) }\n\n    val targetRose   = -h\n    val targetNeedle = (qiblaDirection - h + 360f) % 360f\n\n    // Step each unwrapped value forward by the shortest arc from its current wrapped position\n    unwrappedRose   += shortArc((unwrappedRose   % 360f + 360f) % 360f, (targetRose   % 360f + 360f) % 360f)\n    unwrappedNeedle += shortArc((unwrappedNeedle % 360f + 360f) % 360f, targetNeedle)\n\n    // Rose counter-rotates to keep North pointing up\n    val roseAngle by animateFloatAsState(\n        targetValue   = unwrappedRose,\n        animationSpec = spring(Spring.DampingRatioNoBouncy, Spring.StiffnessLow),\n        label         = "rose"\n    )\n\n    // Needle points at Qibla relative to screen-top\n    val needleAngle by animateFloatAsState(\n        targetValue   = unwrappedNeedle,\n        animationSpec = spring(Spring.DampingRatioNoBouncy, Spring.StiffnessLow),\n        label         = "needle"\n    )\n\n    val isFacingQibla = !heading.isNaN() &&\n        kotlin.math.abs(shortArc(h, qiblaDirection)) < 5f\n\n    val compassScale by animateFloatAsState(\n        targetValue   = if (isFacingQibla) 1.05f else 1f,\n        animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium),\n        label         = "scale"\n    )\n\n    AnimatedGradientBackground {\n        Column(\n            modifier             = Modifier.fillMaxSize().padding(top = 32.dp),\n            horizontalAlignment  = Alignment.CenterHorizontally,\n            verticalArrangement  = Arrangement.Top\n        ) {\n            Text(\n                "Qibla Compass",\n                style      = MaterialTheme.typography.headlineSmall,\n                fontWeight = FontWeight.Bold,\n                color      = Color.White\n            )\n            Spacer(Modifier.height(4.dp))\n            Text(\n                text      = if (!isCalibrated) "Move phone in a figure-8 to calibrate"\n                            else statusMessage,\n                style     = MaterialTheme.typography.bodySmall,\n                color     = if (!isCalibrated) Color(0xFFFBBF24) else TextSecondary,\n                textAlign = TextAlign.Center,\n                modifier  = Modifier.padding(horizontal = 32.dp)\n            )\n            Spacer(Modifier.height(48.dp))\n\n            Box(Modifier.size(280.dp).scale(compassScale), contentAlignment = Alignment.Center) {\n\n                // ── Compass rose ──────────────────────────────────────────────\n                Canvas(Modifier.fillMaxSize().rotate(roseAngle)) {\n                    val cx = size.width / 2f; val cy = size.height / 2f\n                    val r  = size.minDimension / 2f\n                    drawCircle(\n                        Brush.radialGradient(\n                            listOf(LavenderGlow.copy(alpha = 0.15f), Color.Transparent),\n                            Offset(cx, cy), r\n                        ), r\n                    )\n                    drawCircle(Color.White.copy(alpha = 0.08f), r - 4f, style = Stroke(1.5f))\n                    drawCircle(Color.White.copy(alpha = 0.04f), r * 0.75f, style = Stroke(1f))\n                    for (i in 0 until 8) {\n                        val ang   = Math.toRadians(i * 45.0)\n                        val major = i % 2 == 0\n                        val ri    = r * if (major) 0.82f else 0.88f\n                        val ro    = r * 0.94f\n                        drawLine(\n                            Color.White.copy(alpha = if (major) 0.5f else 0.25f),\n                            Offset(cx + (ri * sin(ang)).toFloat(), cy - (ri * cos(ang)).toFloat()),\n                            Offset(cx + (ro * sin(ang)).toFloat(), cy - (ro * cos(ang)).toFloat()),\n                            if (major) 2f else 1f\n                        )\n                    }\n                }\n\n                // ── Qibla needle ──────────────────────────────────────────────\n                Canvas(Modifier.fillMaxSize().rotate(needleAngle)) {\n                    val cx = size.width / 2f; val cy = size.height / 2f\n                    val tip = Path().apply {\n                        moveTo(cx, cy - size.minDimension * 0.38f)\n                        lineTo(cx - 12f, cy + 14f)\n                        lineTo(cx,       cy + 24f)\n                        lineTo(cx + 12f, cy + 14f)\n                        close()\n                    }\n                    drawPath(\n                        tip,\n                        Brush.verticalGradient(listOf(\n                            if (isFacingQibla) WarmAmber else LavenderGlow,\n                            if (isFacingQibla) WarmAmber.copy(alpha = 0.4f)\n                            else SoftPurple.copy(alpha = 0.4f)\n                        ))\n                    )\n                    drawCircle(Color.White, 8f, Offset(cx, cy))\n                    drawCircle(if (isFacingQibla) WarmAmber else SoftPurple, 4f, Offset(cx, cy))\n                }\n\n                // ── Mosque icon pinned at screen-top ──────────────────────────\n                Box(\n                    Modifier\n                        .align(Alignment.TopCenter)\n                        .padding(top = 16.dp)\n                        .clip(CircleShape)\n                        .background(\n                            if (isFacingQibla) WarmAmber.copy(alpha = 0.25f)\n                            else Color.White.copy(alpha = 0.08f)\n                        )\n                        .border(\n                            1.dp,\n                            if (isFacingQibla) WarmAmber.copy(alpha = 0.7f)\n                            else Color.White.copy(alpha = 0.2f),\n                            CircleShape\n                        )\n                        .padding(horizontal = 10.dp, vertical = 6.dp),\n                    contentAlignment = Alignment.Center\n                ) {\n                    Icon(\n                        Icons.Filled.Mosque, "Qibla",\n                        tint     = if (isFacingQibla) WarmAmber else Color.White.copy(alpha = 0.80f),\n                        modifier = Modifier.size(20.dp)\n                    )\n                }\n            }\n\n            Spacer(Modifier.height(32.dp))\n            Text(\n                if (isFacingQibla) "Facing Qibla" else "${qiblaDirection.roundToInt()}° from North",\n                style      = MaterialTheme.typography.titleLarge,\n                fontWeight = FontWeight.Medium,\n                color      = if (isFacingQibla) WarmAmber else LavenderGlow\n            )\n            Spacer(Modifier.height(8.dp))\n            Text(\n                if (isFacingQibla)\n                    "You are facing the Kaaba. May Allah accept your prayer."\n                else\n                    "Rotate your phone until the arrow points toward the Mosque icon",\n                style     = MaterialTheme.typography.bodyMedium,\n                color     = TextSecondary,\n                textAlign = TextAlign.Center,\n                modifier  = Modifier.padding(horizontal = 32.dp)\n            )\n            Spacer(Modifier.height(24.dp))\n            Box(\n                Modifier\n                    .clip(RoundedCornerShape(12.dp))\n                    .background(Color.White.copy(alpha = 0.05f))\n                    .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(12.dp))\n                    .padding(horizontal = 20.dp, vertical = 10.dp)\n            ) {\n                Text(\n                    "21.4225 N, 39.8262 E",\n                    style = MaterialTheme.typography.bodySmall,\n                    color = TextSecondary.copy(alpha = 0.7f)\n                )\n            }\n        }\n    }\n}\n\nprivate fun qibla(fromLat: Double, fromLon: Double): Float {\n    val dLon = Math.toRadians(KAABA_LON - fromLon)\n    val lat1 = Math.toRadians(fromLat)\n    val lat2 = Math.toRadians(KAABA_LAT)\n    return ((Math.toDegrees(\n        atan2(\n            sin(dLon) * cos(lat2),\n            cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)\n        )\n    ) + 360.0) % 360.0).toFloat()\n}\n\nprivate const val KAABA_LAT = 21.4225\nprivate const val KAABA_LON = 39.8262\n'
+SIZES = {
+    "mipmap-mdpi":    48,
+    "mipmap-hdpi":    72,
+    "mipmap-xhdpi":   96,
+    "mipmap-xxhdpi":  144,
+    "mipmap-xxxhdpi": 192,
+}
 
-os.makedirs(os.path.dirname(dest), exist_ok=True)
-with open(dest, "w", encoding="utf-8", newline="\n") as f:
-    f.write(content)
-print(f"✅ QiblaScreen.kt written ({len(content.splitlines())} lines)")
-print("  Fix: compass + needle no longer take long way around 0/360 boundary")
+# ── Icon drawing ──────────────────────────────────────────────────────────────
+
+def make_icon(final_size, rounded):
+    SCALE = 4
+    S     = final_size * SCALE
+    BG    = (13, 34, 51, 255)     # #0D2233 — exact splash screen bg
+    FG    = (255, 255, 255, 255)
+
+    img  = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    if rounded:
+        r = int(S * 0.24)
+        draw.rounded_rectangle([0, 0, S-1, S-1], radius=r, fill=BG)
+    else:
+        draw.rectangle([0, 0, S-1, S-1], fill=BG)
+
+    icon_r = S * 0.36
+    cx, cy = S // 2, S // 2
+    def sc(v):    return v * icon_r / 12.0
+    def pt(x, y): return (cx + sc(x-12), cy + sc(y-12))
+
+    draw.rectangle([pt(2,15), pt(22,21)], fill=FG)
+
+    draw.rectangle([pt(3.5,9), pt(5.5,15)], fill=FG)
+    draw.polygon([pt(3.5,9), pt(4.5,7), pt(5.5,9)], fill=FG)
+    br = sc(0.7); bx,by = pt(4.5,6.3)
+    draw.ellipse([bx-br,by-br,bx+br,by+br], fill=FG)
+
+    draw.rectangle([pt(18.5,9), pt(20.5,15)], fill=FG)
+    draw.polygon([pt(18.5,9), pt(19.5,7), pt(20.5,9)], fill=FG)
+    bx,by = pt(19.5,6.3)
+    draw.ellipse([bx-br,by-br,bx+br,by+br], fill=FG)
+
+    dome_cx,dome_top = pt(12,9); dome_w=sc(8); dome_h=sc(5.5)
+    draw.ellipse([dome_cx-dome_w, dome_top, dome_cx+dome_w, dome_top+dome_h*2], fill=FG)
+    draw.rectangle([dome_cx-dome_w-2, dome_top+dome_h, dome_cx+dome_w+2, dome_top+dome_h*2+4], fill=BG)
+
+    dw=sc(1.8); dh=sc(3.5); dcx,dcy = pt(12,21)
+    draw.rectangle([dcx-dw,dcy-dh,dcx+dw,dcy], fill=BG)
+    draw.ellipse([dcx-dw,dcy-dh-dw,dcx+dw,dcy-dh+dw], fill=BG)
+
+    cr=sc(0.9); ccx,ccy = pt(12,8.5)
+    draw.ellipse([ccx-cr,ccy-cr,ccx+cr,ccy+cr], fill=FG)
+    draw.ellipse([ccx-cr*0.75,ccy-cr*1.1,ccx+cr*0.75,ccy+cr*0.5], fill=BG)
+
+    return img.resize((final_size, final_size), Image.LANCZOS)
+
+# ── XML content ───────────────────────────────────────────────────────────────
+
+# Adaptive icon XML (goes in each mipmap folder)
+ADAPTIVE_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>
+'''
+
+# Background drawable — solid #0D2233
+BACKGROUND_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#0D2233"/>
+</shape>
+'''
+
+# Foreground drawable — Material Icons mosque vector path
+FOREGROUND_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M21.32,9.55C21.76,9.39 22,8.92 21.84,8.48C21.47,7.5 20.61,6.76 19.57,6.54L19,6.42V6C19,4.9 18.1,4 17,4C15.9,4 15,4.9 15,6V6.42L14.43,6.54C13.39,6.76 12.53,7.5 12.16,8.48C12,8.92 12.24,9.39 12.68,9.55L14,10.05V11H10V10.05L11.32,9.55C11.76,9.39 12,8.92 11.84,8.48C11.47,7.5 10.61,6.76 9.57,6.54L9,6.42V6C9,4.9 8.1,4 7,4C5.9,4 5,4.9 5,6V6.42L4.43,6.54C3.39,6.76 2.53,7.5 2.16,8.48C2,8.92 2.24,9.39 2.68,9.55L4,10.05V11H2V13H4V20H2V22H22V20H20V13H22V11H20V10.05L21.32,9.55ZM10,20H7V17C7,15.9 7.9,15 9,15H10V20ZM13,20H11V15H13V20ZM17,20H14V15H15C16.1,15 17,15.9 17,17V20Z"/>
+</vector>
+'''
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+def main():
+    if not os.path.isdir(RES):
+        print("❌ Can't find Sujood/app/src/main/res")
+        print("   Make sure you run this from your repo root (same folder as .git)")
+        sys.exit(1)
+
+    print("Writing icon files...\n")
+
+    # 1. Write PNGs into every mipmap folder
+    for folder, size in SIZES.items():
+        out_dir = os.path.join(RES, folder)
+        os.makedirs(out_dir, exist_ok=True)
+
+        make_icon(size, rounded=False).save(os.path.join(out_dir, "ic_launcher.png"))
+        make_icon(size, rounded=True ).save(os.path.join(out_dir, "ic_launcher_round.png"))
+
+        # Also overwrite the XML in each mipmap folder
+        for name in ("ic_launcher.xml", "ic_launcher_round.xml"):
+            with open(os.path.join(out_dir, name), "w", encoding="utf-8") as f:
+                f.write(ADAPTIVE_XML)
+
+        print(f"  ✅ {folder:20s}  {size}x{size}px  (png + xml)")
+
+    # 2. Overwrite the drawable XMLs that define foreground/background
+    drawable_dir = os.path.join(RES, "drawable")
+    os.makedirs(drawable_dir, exist_ok=True)
+
+    with open(os.path.join(drawable_dir, "ic_launcher_background.xml"), "w", encoding="utf-8") as f:
+        f.write(BACKGROUND_XML)
+    print("\n  ✅ drawable/ic_launcher_background.xml")
+
+    with open(os.path.join(drawable_dir, "ic_launcher_foreground.xml"), "w", encoding="utf-8") as f:
+        f.write(FOREGROUND_XML)
+    print("  ✅ drawable/ic_launcher_foreground.xml")
+
+    print("\n✅ All icon files updated!")
+    print("\nNow run:")
+    print("  git add .")
+    print('  git commit -m "feat: update app icon"')
+    print("  git push")
+    print("  cd Sujood && ./gradlew assembleDebug")
+    print("\nThen uninstall the old app from your phone before installing the new APK.")
+    print("Android caches icons — uninstalling first guarantees the new one shows up.")
+
+if __name__ == "__main__":
+    main()
