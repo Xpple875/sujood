@@ -300,7 +300,7 @@ private fun HeroSection(
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 SunArcWidget(
-                    Modifier.fillMaxWidth(0.48f).height(54.dp),
+                    Modifier.fillMaxWidth(0.40f).height(44.dp),
                     prayerTimes, completedPrayers, nextPrayerInfo
                 )
                 Spacer(Modifier.height(4.dp))
@@ -322,11 +322,11 @@ private fun SunArcWidget(modifier: Modifier, prayerTimes: List<PrayerTime>,
         val cy = size.height + (size.height * 0.15f) // Move center down slightly
         val r = size.width * 0.48f // Slightly larger radius
 
-        // Dotted arc — made "more solid" and thicker per user feedback
+        // Dotted arc — made dashes longer so they look like dashes, not dots
         drawPath(Path().apply {
             addArc(Rect(cx - r, cy - r, cx + r, cy + r), 180f, 180f)
-        }, Color.White.copy(alpha = 0.35f), style = Stroke(4f, // Thicker stroke
-            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 16f)))) // Longer gaps
+        }, Color.White.copy(alpha = 0.25f), style = Stroke(6f,
+            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(12f, 20f)))) // Longer dashes 12f, smaller gap 20f
 
         val ang = Math.toRadians(180.0 + progress * 180.0)
         val sx = cx + r * cos(ang).toFloat()

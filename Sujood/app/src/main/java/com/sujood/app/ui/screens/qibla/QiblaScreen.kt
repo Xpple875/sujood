@@ -104,9 +104,6 @@ fun QiblaScreen() {
         }
     }
 
-    // smoothedRaw  — normalised 0-360 heading, NaN until first sensor tick
-    // accumulatedHead — unbounded running total; lets animateFloatAsState
-    //   always take the short path (no 0<->360 wraparound spin)
     var smoothedRaw     by remember { mutableFloatStateOf(Float.NaN) }
     var accumulatedHead by remember { mutableFloatStateOf(0f) }
 
@@ -127,9 +124,9 @@ fun QiblaScreen() {
                 val R = FloatArray(9); val I = FloatArray(9)
                 if (!SensorManager.getRotationMatrix(R, I, a, m)) return
                 val orient = FloatArray(3); SensorManager.getOrientation(R, orient)
-                val rawNorm = ((Math.toDegrees(orient[0].toDouble()).toFloat() % 360f) + 360f) % 360f
+                val rawDeg = Math.toDegrees(orient[0].toDouble()).toFloat()
+                val rawNorm = (rawDeg + 360f) % 360f
                 if (smoothedRaw.isNaN()) {
-                    // First tick after entering screen — snap instantly, no spin from 0
                     smoothedRaw = rawNorm; accumulatedHead = rawNorm
                 } else {
                     val delta = shortestDelta(smoothedRaw, rawNorm)
@@ -154,7 +151,6 @@ fun QiblaScreen() {
     )
 
     val cur = smoothedRaw.takeIf { !it.isNaN() } ?: 0f
-    // Needle target: accumulated base + shortest-arc offset to qibla
     val needleTarget = accumulatedHead + shortestDelta(cur, ((qiblaDirection - cur + 360f) % 360f))
     val animatedNeedle by animateFloatAsState(
         targetValue = needleTarget,
