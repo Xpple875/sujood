@@ -95,8 +95,9 @@ enum class LockMode(val displayName: String) {
 
 data class UserSettings(
     val name: String = "",
-    val calculationMethod: CalculationMethod = CalculationMethod.MAKKAH,
+    val calculationMethod: CalculationMethod = CalculationMethod.MWL,
     val madhab: Madhab = Madhab.SHAFI,
+    val prayerTune: String = "0,0,0,0,0,0,0,0,0", // Offsets for Imsak, Fajr, Sunrise, Dhuhr, Asr, Maghrib, Sunset, Isha, Midnight
     val gracePeriodMinutes: Int = 0,
     val fajrNotificationEnabled: Boolean = true,
     val dhuhrNotificationEnabled: Boolean = true,

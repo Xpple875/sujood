@@ -24,17 +24,17 @@ class GetPrayerTimesUseCase(
         latitude: Double,
         longitude: Double,
         calculationMethodCode: Int,
-        madhabCode: Int
+        madhabCode: Int,
+        tune: String? = null
     ): Result<List<PrayerTime>> {
         return repository.getPrayerTimes(
             latitude = latitude,
             longitude = longitude,
-            method = com.sujood.app.domain.model.CalculationMethod.entries.getOrElse(calculationMethodCode) {
-                com.sujood.app.domain.model.CalculationMethod.MWL
-            },
-            madhab = com.sujood.app.domain.model.Madhab.entries.getOrElse(madhabCode) {
-                com.sujood.app.domain.model.Madhab.SHAFI
-            }
+            method = com.sujood.app.domain.model.CalculationMethod.entries.firstOrNull { it.code == calculationMethodCode }
+                ?: com.sujood.app.domain.model.CalculationMethod.MWL,
+            madhab = com.sujood.app.domain.model.Madhab.entries.firstOrNull { it.code == madhabCode }
+                ?: com.sujood.app.domain.model.Madhab.SHAFI,
+            tune = tune
         )
     }
 }

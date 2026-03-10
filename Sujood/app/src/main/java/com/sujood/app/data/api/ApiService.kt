@@ -12,7 +12,8 @@ interface AladhanApiService {
         @Query("longitude") longitude: Double,
         @Query("method") method: Int,
         @Query("school") school: Int = 0,
-        @Query("date") date: String = "now"
+        @Query("date") date: String = "now",
+        @Query("tune") tune: String? = null
     ): PrayerTimesResponse
 
     @GET("timings")
@@ -22,7 +23,8 @@ interface AladhanApiService {
         @Query("method") method: Int,
         @Query("school") school: Int = 0,
         @Query("date") date: String = "now",
-        @Query("adjustment") adjustment: Int = 0
+        @Query("adjustment") adjustment: Int = 0,
+        @Query("tune") tune: String? = null
     ): PrayerTimesResponse
 
     @GET("timingsByCity")
@@ -30,7 +32,8 @@ interface AladhanApiService {
         @Query("city") city: String,
         @Query("country") country: String? = null,
         @Query("method") method: Int,
-        @Query("school") school: Int = 0
+        @Query("school") school: Int = 0,
+        @Query("tune") tune: String? = null
     ): PrayerTimesResponse
 
     @GET("citySearch")

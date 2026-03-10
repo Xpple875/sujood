@@ -700,8 +700,9 @@ private suspend fun rescheduleAlarms(context: android.content.Context, userPrefe
     val repository = PrayerTimesRepository(RetrofitClient.aladhanApiService, app.database.prayerLogDao())
     val result = when {
         settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0 ->
-            repository.getPrayerTimes(settings.savedLatitude, settings.savedLongitude, settings.calculationMethod, settings.madhab)
-        settings.savedCity.isNotEmpty() -> repository.getPrayerTimesByCity(settings.savedCity)
+            repository.getPrayerTimes(settings.savedLatitude, settings.savedLongitude, settings.calculationMethod, settings.madhab, settings.prayerTune)
+        settings.savedCity.isNotEmpty() -> 
+            repository.getPrayerTimesByCity(settings.savedCity, settings.calculationMethod, settings.madhab, settings.prayerTune)
         else -> return
     }
     result.onSuccess { prayerTimes ->

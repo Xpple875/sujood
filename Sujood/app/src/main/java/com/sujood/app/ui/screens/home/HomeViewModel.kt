@@ -148,24 +148,29 @@ class HomeViewModel(
      *   3. If online → refresh from network in background and update silently.
      *   4. If offline and no cache → show error with offline message.
      */
-    fun initializeAndRefresh(context: Context) {
+    fun initializeAndRefresh(context: Context, forceRefresh: Boolean = false) {
         cachedContext = context.applicationContext
-        if (_uiState.value.prayerTimes.isNotEmpty()) return
 
         viewModelScope.launch {
             val settings = userPreferences.userSettings.first()
             val today    = todayKey()
             val online   = isOnline(context)
 
-            // Step 1: Try today's cache immediately (instant, no network needed)
-            val cache = userPreferences.getCachedPrayerTimesForToday(today)
-            if (cache != null) {
-                val cached = buildPrayerTimesFromCache(cache, today)
-                handlePrayerTimesSuccessNoCache(cached)   // show cache without re-caching
-                if (!online) return@launch                // offline + cache = we're done
-                // Online: fall through to silently refresh in background
-                refreshInBackground(settings, context)
-                return@launch
+            // Step 1: Try today's cache immediately (unless forced to refresh)
+            if (!forceRefresh) {
+                val cache = userPreferences.getCachedPrayerTimesForToday(today)
+                if (cache != null) {
+                    Log.d(TAG, "[DIAG] Using today's cache: $cache")
+                    val cached = buildPrayerTimesFromCache(cache, today)
+                    handlePrayerTimesSuccessNoCache(cached)
+                    if (!online) return@launch
+                    refreshInBackground(settings, context)
+                    return@launch
+                } else {
+                    Log.d(TAG, "[DIAG] No cache for today ($today), will fetch fresh")
+                }
+            } else {
+                Log.d(TAG, "[DIAG] forceRefresh=true, skipping cache")
             }
 
             // Step 2: No cache. Must go online.
@@ -181,16 +186,22 @@ class HomeViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             when {
                 settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0 ->
-                    fetchPrayerTimesByLocation(settings.savedLatitude, settings.savedLongitude)
+                    fetchPrayerTimesByLocation(settings.savedLatitude, settings.savedLongitude, settings.prayerTune)
                 settings.savedCity.isNotEmpty() -> {
                     val bareCity = settings.savedCity.substringBefore(",").trim().lowercase()
                     val coords   = CITY_COORDS[bareCity]
-                    if (coords != null) {
+                    
+                    // Dubai Check pre-fetch — force coordinate-based fetch
+                    // (Aladhan /timingsByCity ignores the tune parameter)
+                    if (bareCity == "dubai") {
+                        val dubaiCoords = CITY_COORDS["dubai"]!!
+                        fetchPrayerTimesByLocation(dubaiCoords.first, dubaiCoords.second)
+                    } else if (coords != null) {
                         fetchPrayerTimesByLocation(coords.first, coords.second)
                     } else {
                         repository.getPrayerTimesByCity(
                             settings.savedCity.substringBefore(",").trim(),
-                            settings.calculationMethod, settings.madhab
+                            settings.calculationMethod, settings.madhab, settings.prayerTune
                         ).fold(
                             onSuccess = { handlePrayerTimesSuccess(it) },
                             onFailure = { _uiState.value = _uiState.value.copy(isLoading = false,
@@ -208,33 +219,75 @@ class HomeViewModel(
         try {
             when {
                 settings.savedLatitude != 0.0 && settings.savedLongitude != 0.0 -> {
-                    val result = withTimeout(API_TIMEOUT_MS) {
-                        repository.getPrayerTimes(settings.savedLatitude, settings.savedLongitude,
-                            settings.calculationMethod, settings.madhab)
+                    val isDubaiGps = settings.savedLatitude in 24.8..25.4 && settings.savedLongitude in 54.8..55.6
+                    if (isDubaiGps) {
+                        // Use hardcoded Dubai coords for consistency
+                        val dc = CITY_COORDS["dubai"]!!
+                        val method = com.sujood.app.domain.model.CalculationMethod.DUBAI
+                        val tune = "0,-1,0,0,2,0,0,0,0"
+                        val result = withTimeout(API_TIMEOUT_MS) {
+                            repository.getPrayerTimes(dc.first, dc.second, method, settings.madhab, tune)
+                        }
+                        result.onSuccess {
+                            userPreferences.saveCalculationMethod(method)
+                            userPreferences.savePrayerTune(tune)
+                            handlePrayerTimesSuccess(applyDubaiMaghribFix(it))
+                        }
+                    } else {
+                        val result = withTimeout(API_TIMEOUT_MS) {
+                            repository.getPrayerTimes(settings.savedLatitude, settings.savedLongitude,
+                                settings.calculationMethod, settings.madhab, settings.prayerTune)
+                        }
+                        result.onSuccess { handlePrayerTimesSuccess(it) }
                     }
-                    result.onSuccess { handlePrayerTimesSuccess(it) }
                 }
                 settings.savedCity.isNotEmpty() -> {
                     val bareCity = settings.savedCity.substringBefore(",").trim().lowercase()
                     val coords   = CITY_COORDS[bareCity]
-                    if (coords != null) {
+                    if (bareCity == "dubai") {
+                        val dc = CITY_COORDS["dubai"]!!
+                        val method = com.sujood.app.domain.model.CalculationMethod.DUBAI
+                        val tune = "0,-1,0,0,2,0,0,0,0"
+                        val result = withTimeout(API_TIMEOUT_MS) {
+                            repository.getPrayerTimes(dc.first, dc.second, method, settings.madhab, tune)
+                        }
+                        result.onSuccess {
+                            userPreferences.saveCalculationMethod(method)
+                            userPreferences.savePrayerTune(tune)
+                            handlePrayerTimesSuccess(applyDubaiMaghribFix(it))
+                        }
+                    } else if (coords != null) {
                         val result = withTimeout(API_TIMEOUT_MS) {
                             repository.getPrayerTimes(coords.first, coords.second,
-                                settings.calculationMethod, settings.madhab)
+                                settings.calculationMethod, settings.madhab, settings.prayerTune)
                         }
                         result.onSuccess { handlePrayerTimesSuccess(it) }
                     }
                 }
                 else -> {
-                    // Try GPS quietly
                     fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
                     val loc = getLocationWithTimeout(context)
                     if (loc != null) {
-                        val result = withTimeout(API_TIMEOUT_MS) {
-                            repository.getPrayerTimes(loc.latitude, loc.longitude,
-                                settings.calculationMethod, settings.madhab)
+                        val isDubaiGps = loc.latitude in 24.8..25.4 && loc.longitude in 54.8..55.6
+                        if (isDubaiGps) {
+                            val dc = CITY_COORDS["dubai"]!!
+                            val method = com.sujood.app.domain.model.CalculationMethod.DUBAI
+                            val tune = "0,-1,0,0,2,0,0,0,0"
+                            val result = withTimeout(API_TIMEOUT_MS) {
+                                repository.getPrayerTimes(dc.first, dc.second, method, settings.madhab, tune)
+                            }
+                            result.onSuccess {
+                                userPreferences.saveCalculationMethod(method)
+                                userPreferences.savePrayerTune(tune)
+                                handlePrayerTimesSuccess(applyDubaiMaghribFix(it))
+                            }
+                        } else {
+                            val result = withTimeout(API_TIMEOUT_MS) {
+                                repository.getPrayerTimes(loc.latitude, loc.longitude,
+                                    settings.calculationMethod, settings.madhab, settings.prayerTune)
+                            }
+                            result.onSuccess { handlePrayerTimesSuccess(it) }
                         }
-                        result.onSuccess { handlePrayerTimesSuccess(it) }
                     }
                 }
             }
@@ -244,7 +297,22 @@ class HomeViewModel(
     private fun loadUserData() {
         viewModelScope.launch {
             userPreferences.userSettings.collect { settings ->
+                val oldSettings = _uiState.value.settings
+                val calculationChanged = oldSettings.calculationMethod != settings.calculationMethod
+                val madhabChanged = oldSettings.madhab != settings.madhab
+                val locationChanged = oldSettings.savedCity != settings.savedCity ||
+                                     oldSettings.savedLatitude != settings.savedLatitude ||
+                                     oldSettings.savedLongitude != settings.savedLongitude
+                
                 _uiState.value = _uiState.value.copy(userName = settings.name, settings = settings)
+                
+                // If critical settings changed, refresh prayer times
+                if (calculationChanged || madhabChanged || locationChanged) {
+                    if (cachedContext != null) {
+                        Log.d(TAG, "Settings changed, forcing refresh of prayer times")
+                        initializeAndRefresh(cachedContext!!, forceRefresh = true)
+                    }
+                }
             }
         }
     }
@@ -276,6 +344,7 @@ class HomeViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, isLoadingLocation = true,
                 error = null, showCityInput = false)
+            val settings = userPreferences.userSettings.first()
             try {
                 val location = getLocationWithTimeout(context)
                 if (location != null) {
@@ -284,7 +353,7 @@ class HomeViewModel(
                         userPreferences.saveLocationSettings(true, "", "",
                             location.latitude, location.longitude)
                     }
-                    fetchPrayerTimesByLocation(location.latitude, location.longitude)
+                    fetchPrayerTimesByLocation(location.latitude, location.longitude, settings.prayerTune)
                 } else {
                     _uiState.value = _uiState.value.copy(isLoading = false, isLoadingLocation = false,
                         showCityInput = true,
@@ -314,17 +383,31 @@ class HomeViewModel(
             val coords = CITY_COORDS[key]
             if (coords != null) {
                 Log.d(TAG, "Using hardcoded coords for $bareCity: ${coords.first}, ${coords.second}")
+                var targetMethod = settings.calculationMethod
+                var targetTune   = settings.prayerTune
+                
+                // Dubai Specific Fix — use coordinate-based API (city API ignores tune)
+                if (key == "dubai") {
+                    Log.d(TAG, "Dubai detected, auto-tuning methods via coordinate API")
+                    targetMethod = com.sujood.app.domain.model.CalculationMethod.DUBAI
+                    targetTune   = "0,-1,0,0,2,0,0,0,0" // Fajr -1, Asr +2 (Maghrib fixed in post-processing)
+                }
+
                 viewModelScope.launch {
                     userPreferences.saveLocationSettings(false, cityName, "",
                         coords.first, coords.second)
+                    if (key == "dubai") {
+                        userPreferences.saveCalculationMethod(targetMethod)
+                        userPreferences.savePrayerTune(targetTune)
+                    }
                 }
-                fetchPrayerTimesByLocation(coords.first, coords.second)
+                fetchPrayerTimesByLocation(coords.first, coords.second, targetTune)
                 return@launch
             }
 
             // Fallback: try Aladhan /timingsByCity
             try {
-                repository.getPrayerTimesByCity(bareCity, settings.calculationMethod, settings.madhab)
+                repository.getPrayerTimesByCity(bareCity, settings.calculationMethod, settings.madhab, settings.prayerTune)
                     .fold(
                         onSuccess = { prayerTimes ->
                             viewModelScope.launch {
@@ -341,7 +424,7 @@ class HomeViewModel(
                                         userPreferences.saveLocationSettings(false, cityData.name,
                                             cityData.country, cityData.latitude, cityData.longitude)
                                     }
-                                    fetchPrayerTimesByLocation(cityData.latitude, cityData.longitude)
+                                    fetchPrayerTimesByLocation(cityData.latitude, cityData.longitude, settings.prayerTune)
                                 } else {
                                     _uiState.value = _uiState.value.copy(isLoading = false,
                                         error = "Could not find \"$cityName\". Try another city name.")
@@ -372,14 +455,39 @@ class HomeViewModel(
         } catch (e: Exception) { Log.e(TAG, "Location timeout", e); null }
     }
 
-    private suspend fun fetchPrayerTimesByLocation(latitude: Double, longitude: Double) {
+    private suspend fun fetchPrayerTimesByLocation(latitude: Double, longitude: Double, tune: String? = null) {
         _uiState.value = _uiState.value.copy(isLoadingLocation = false)
         try {
             val settings = userPreferences.userSettings.first()
+            var targetMethod = settings.calculationMethod
+            var targetTune   = tune ?: settings.prayerTune
+            var isDubai = false
+            
+            // GPS-based Dubai detection (approximate bounding box for Dubai)
+            val isDubaiGps = latitude in 24.8..25.4 && longitude in 54.8..55.6
+            if (isDubaiGps) {
+                Log.d(TAG, "GPS location in Dubai detected, using coordinate API with tune")
+                isDubai = true
+                targetMethod = com.sujood.app.domain.model.CalculationMethod.DUBAI
+                // Tune: Fajr -1, Asr +2 (Maghrib can't be tuned via API, fixed in post-processing)
+                targetTune   = "0,-1,0,0,2,0,0,0,0"
+                viewModelScope.launch {
+                    userPreferences.saveCalculationMethod(targetMethod)
+                    userPreferences.savePrayerTune(targetTune)
+                }
+            }
+
+            // Always use coordinate-based /timings endpoint (city endpoint ignores tune)
+            val fetchLat = if (isDubai) CITY_COORDS["dubai"]!!.first else latitude
+            val fetchLng = if (isDubai) CITY_COORDS["dubai"]!!.second else longitude
+
             withTimeout(API_TIMEOUT_MS) {
-                repository.getPrayerTimes(latitude, longitude, settings.calculationMethod, settings.madhab)
+                repository.getPrayerTimes(fetchLat, fetchLng, targetMethod, settings.madhab, targetTune)
             }.fold(
-                onSuccess  = { handlePrayerTimesSuccess(it) },
+                onSuccess  = { times ->
+                    val finalTimes = if (isDubai) applyDubaiMaghribFix(times) else times
+                    handlePrayerTimesSuccess(finalTimes)
+                },
                 onFailure  = { e ->
                     Log.e(TAG, "API error", e)
                     _uiState.value = _uiState.value.copy(isLoading = false,
@@ -393,13 +501,45 @@ class HomeViewModel(
         }
     }
 
+    /**
+     * Post-processing fix for Dubai Maghrib time.
+     * The Aladhan API ignores the tune parameter for Maghrib/Sunset fields.
+     * Method 16 already adds +3 min to Maghrib, but Awqaf says it should be +4.
+     * This function adds +1 minute to the Maghrib time string and timestamp.
+     */
+    private fun applyDubaiMaghribFix(times: List<PrayerTime>): List<PrayerTime> {
+        return times.map { pt ->
+            if (pt.prayer == Prayer.MAGHRIB) {
+                try {
+                    val inputFmt = java.text.SimpleDateFormat("h:mm a", java.util.Locale.US)
+                    val date = inputFmt.parse(pt.time)
+                    if (date != null) {
+                        val cal = java.util.Calendar.getInstance()
+                        cal.time = date
+                        cal.add(java.util.Calendar.MINUTE, 1)
+                        val newTime = inputFmt.format(cal.time)
+                        PrayerTime(pt.prayer, newTime, pt.timestamp + 60_000L)
+                    } else pt
+                } catch (_: Exception) { pt }
+            } else pt
+        }
+    }
+
     /** Build PrayerTime list from cache strings — times are local so no TZ conversion needed. */
     private fun buildPrayerTimesFromCache(cache: Map<String, String>, dateKey: String): List<PrayerTime> {
-        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).apply {
+        val fmt24 = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).apply {
             timeZone = java.util.TimeZone.getDefault()
         }
-        fun ts(time: String) = try { fmt.parse("$dateKey $time")?.time ?: System.currentTimeMillis() }
-                               catch (_: Exception) { System.currentTimeMillis() }
+        val fmt12 = java.text.SimpleDateFormat("yyyy-MM-dd h:mm a", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getDefault()
+        }
+        fun ts(time: String) = try { 
+            if (time.contains("AM") || time.contains("PM")) {
+                fmt12.parse("$dateKey $time")?.time ?: System.currentTimeMillis()
+            } else {
+                fmt24.parse("$dateKey $time")?.time ?: System.currentTimeMillis()
+            }
+        } catch (_: Exception) { System.currentTimeMillis() }
         return listOf(
             PrayerTime(Prayer.FAJR,    cache["FAJR"]    ?: "", ts(cache["FAJR"]    ?: "00:00")),
             PrayerTime(Prayer.DHUHR,   cache["DHUHR"]   ?: "", ts(cache["DHUHR"]   ?: "00:00")),
@@ -411,6 +551,8 @@ class HomeViewModel(
 
     private suspend fun handlePrayerTimesSuccess(prayerTimes: List<PrayerTime>) {
         // Cache today's times for offline use
+        Log.d(TAG, "[DIAG] handlePrayerTimesSuccess called with ${prayerTimes.size} prayer times:")
+        prayerTimes.forEach { Log.d(TAG, "[DIAG]   ${it.prayer.name} = ${it.time}") }
         if (prayerTimes.size == 5) {
             userPreferences.saveCachedPrayerTimes(
                 fajr    = prayerTimes[0].time, dhuhr   = prayerTimes[1].time,

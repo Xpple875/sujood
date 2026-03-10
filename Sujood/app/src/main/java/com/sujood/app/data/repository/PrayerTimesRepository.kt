@@ -27,20 +27,33 @@ class PrayerTimesRepository(
     suspend fun getPrayerTimes(
         latitude: Double,
         longitude: Double,
-        method: CalculationMethod = CalculationMethod.MAKKAH,
-        madhab: Madhab = Madhab.SHAFI
+        method: CalculationMethod = CalculationMethod.MWL,
+        madhab: Madhab = Madhab.SHAFI,
+        tune: String? = null
     ): Result<List<PrayerTime>> = try {
-        val r = apiService.getPrayerTimes(latitude, longitude, method.code, madhab.code)
-        Result.success(parsePrayerTimesResponse(r))
+        val response = apiService.getPrayerTimes(
+            latitude = latitude,
+            longitude = longitude,
+            method   = method.code,
+            school   = madhab.code,
+            tune     = tune
+        )
+        Result.success(parsePrayerTimesResponse(response))
     } catch (e: Exception) { Result.failure(e) }
 
     suspend fun getPrayerTimesByCity(
         cityName: String,
-        method: CalculationMethod = CalculationMethod.MAKKAH,
-        madhab: Madhab = Madhab.SHAFI
+        method: CalculationMethod = CalculationMethod.MWL,
+        madhab: Madhab = Madhab.SHAFI,
+        tune: String? = null
     ): Result<List<PrayerTime>> = try {
-        val r = apiService.getPrayerTimesByCity(cityName, null, method.code, madhab.code)
-        Result.success(parsePrayerTimesResponse(r))
+        val response = apiService.getPrayerTimesByCity(
+            city   = cityName,
+            method = method.code,
+            school = madhab.code,
+            tune   = tune
+        )
+        Result.success(parsePrayerTimesResponse(response))
     } catch (e: Exception) { Result.failure(e) }
 
     suspend fun searchCity(query: String) = apiService.searchCity(query)
@@ -49,24 +62,40 @@ class PrayerTimesRepository(
         val t  = response.data.timings
         val ds = response.data.date.gregorian.date   // "dd-MM-yyyy"
         val tz = response.data.meta.timezone         // e.g. "Asia/Dubai"
-        fun s(raw: String) = raw.substring(0, 5)
+        
+        android.util.Log.d("PrayerRepo", "Parsing prayer times for $ds ($tz): $t")
+        
+        val inputFormat  = SimpleDateFormat("HH:mm", Locale.US)
+        val outputFormat = SimpleDateFormat("h:mm a", Locale.US)
+
+        fun formatP(raw: String): String = try {
+            val clean = raw.substringBefore(" ").trim().substring(0, 5)
+            val date = inputFormat.parse(clean)
+            if (date != null) outputFormat.format(date) else clean
+        } catch (e: Exception) { raw }
+
         fun ts(raw: String) = parseTs(raw, ds, tz)
+        
         return listOf(
-            PrayerTime(Prayer.FAJR,    s(t.fajr),    ts(t.fajr)),
-            PrayerTime(Prayer.DHUHR,   s(t.dhuhr),   ts(t.dhuhr)),
-            PrayerTime(Prayer.ASR,     s(t.asr),     ts(t.asr)),
-            PrayerTime(Prayer.MAGHRIB, s(t.maghrib), ts(t.maghrib)),
-            PrayerTime(Prayer.ISHA,    s(t.isha),    ts(t.isha))
+            PrayerTime(Prayer.FAJR,    formatP(t.fajr),    ts(t.fajr)),
+            PrayerTime(Prayer.DHUHR,   formatP(t.dhuhr),   ts(t.dhuhr)),
+            PrayerTime(Prayer.ASR,     formatP(t.asr),     ts(t.asr)),
+            PrayerTime(Prayer.MAGHRIB, formatP(t.maghrib), ts(t.maghrib)),
+            PrayerTime(Prayer.ISHA,    formatP(t.isha),    ts(t.isha))
         )
     }
 
     /** Parse time string in the prayer location's timezone, not the device's. */
     private fun parseTs(time: String, dateStr: String, timezone: String): Long = try {
-        val clean = time.substringBefore(" ").trim().substring(0, 5)
+        val clean = time.substringBefore(" ").trim()
+        val timeWithMinutes = if (clean.length >= 5) clean.substring(0, 5) else clean
         SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.US)
             .apply { timeZone = TimeZone.getTimeZone(timezone) }
-            .parse("$dateStr $clean")?.time ?: System.currentTimeMillis()
-    } catch (_: Exception) { System.currentTimeMillis() }
+            .parse("$dateStr $timeWithMinutes")?.time ?: System.currentTimeMillis()
+    } catch (e: Exception) {
+        android.util.Log.e("PrayerRepo", "Error parsing timestamp: $time, $dateStr, $timezone", e)
+        System.currentTimeMillis()
+    }
 
     fun getCurrentDateString(): String = dateFormat.format(Date())
     fun getCurrentDateKey(): String    = dateKeyFormat.format(Date())

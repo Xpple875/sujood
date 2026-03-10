@@ -71,13 +71,14 @@ class UserPreferences(private val context: Context) {
         val VIBRATION_ENABLED       = booleanPreferencesKey("vibration_enabled")
         val PRAYER_LOCK_ENABLED     = booleanPreferencesKey("prayer_lock_enabled")
         val OVERLAY_QUOTE           = stringPreferencesKey("overlay_quote")
+        val PRAYER_TUNE             = stringPreferencesKey("prayer_tune")
     }
 
     val userSettings: Flow<UserSettings> = context.dataStore.data.map { prefs ->
         // Restore calculation method by code value, not by list index
-        val savedMethodCode = prefs[PreferencesKeys.CALCULATION_METHOD] ?: CalculationMethod.MAKKAH.code
+        val savedMethodCode = prefs[PreferencesKeys.CALCULATION_METHOD] ?: CalculationMethod.MWL.code
         val calcMethod = CalculationMethod.entries.firstOrNull { it.code == savedMethodCode }
-            ?: CalculationMethod.MAKKAH
+            ?: CalculationMethod.MWL
 
         val savedMadhabCode = prefs[PreferencesKeys.MADHAB] ?: Madhab.SHAFI.code
         val madhab = Madhab.entries.firstOrNull { it.code == savedMadhabCode } ?: Madhab.SHAFI
@@ -118,7 +119,8 @@ class UserPreferences(private val context: Context) {
             adhanVolume              = prefs[PreferencesKeys.ADHAN_VOLUME] ?: 0.5f,
             vibrationEnabled         = prefs[PreferencesKeys.VIBRATION_ENABLED] ?: true,
             prayerLockEnabled        = prefs[PreferencesKeys.PRAYER_LOCK_ENABLED] ?: true,
-            overlayQuote             = prefs[PreferencesKeys.OVERLAY_QUOTE] ?: ""
+            overlayQuote             = prefs[PreferencesKeys.OVERLAY_QUOTE] ?: "",
+            prayerTune               = prefs[PreferencesKeys.PRAYER_TUNE] ?: "0,0,0,0,0,0,0,0,0"
         )
     }
 
@@ -161,6 +163,10 @@ class UserPreferences(private val context: Context) {
 
     suspend fun saveGracePeriod(minutes: Int) {
         context.dataStore.edit { prefs -> prefs[PreferencesKeys.GRACE_PERIOD] = minutes }
+    }
+
+    suspend fun savePrayerTune(tune: String) {
+        context.dataStore.edit { prefs -> prefs[PreferencesKeys.PRAYER_TUNE] = tune }
     }
 
     suspend fun saveNotificationEnabled(prayer: String, enabled: Boolean) {

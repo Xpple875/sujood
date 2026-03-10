@@ -152,11 +152,17 @@ class BootReceiver : BroadcastReceiver() {
                             latitude = settings.savedLatitude,
                             longitude = settings.savedLongitude,
                             method = settings.calculationMethod,
-                            madhab = settings.madhab
+                            madhab = settings.madhab,
+                            tune = settings.prayerTune
                         )
                     }
                     settings.savedCity.isNotEmpty() -> {
-                        repository.getPrayerTimesByCity(settings.savedCity)
+                        repository.getPrayerTimesByCity(
+                            cityName = settings.savedCity,
+                            method = settings.calculationMethod,
+                            madhab = settings.madhab,
+                            tune = settings.prayerTune
+                        )
                     }
                     else -> return@launch
                 }

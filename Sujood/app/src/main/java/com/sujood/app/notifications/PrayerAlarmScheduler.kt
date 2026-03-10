@@ -33,10 +33,21 @@ class PrayerAlarmScheduler(private val context: Context) {
         isLockEnabled: Boolean,
         gracePeriodMinutes: Int = 0
     ) {
-        // Parse the time string to calendar
-        val timeParts = prayerTime.time.split(":")
-        val hour = timeParts[0].toInt()
-        val minute = timeParts[1].toInt()
+        // Parse the time string to calendar (robust against 12-hour AM/PM formats)
+        val timeUpper = prayerTime.time.uppercase()
+        val isPm = timeUpper.contains("PM")
+        val isAm = timeUpper.contains("AM")
+
+        // Strip out any non-numeric and non-colon characters to prevent NumberFormatException
+        val cleanTime = prayerTime.time.replace(Regex("[^0-9:]"), "")
+        val timeParts = cleanTime.split(":")
+        
+        var hour = timeParts.getOrNull(0)?.toIntOrNull() ?: 0
+        val minute = timeParts.getOrNull(1)?.toIntOrNull() ?: 0
+
+        // Adjust for 12-hour format
+        if (isPm && hour < 12) hour += 12
+        if (isAm && hour == 12) hour = 0
 
         // Create calendar for the prayer time, applying grace period as early trigger
         val calendar = Calendar.getInstance().apply {
