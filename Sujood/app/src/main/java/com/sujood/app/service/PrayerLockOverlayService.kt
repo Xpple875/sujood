@@ -43,6 +43,8 @@ class PrayerLockOverlayService : Service() {
     private var overlayView: View? = null
     private var mediaPlayer: MediaPlayer? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var overlayParams: WindowManager.LayoutParams? = null
+    private var screenWasOn: Boolean = true  // was screen on before we woke it?
     private var sensorManager: SensorManager? = null
     private var accelerometer: Sensor? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -66,13 +68,16 @@ class PrayerLockOverlayService : Service() {
         // We hold it for 10 seconds — long enough for the overlay to appear and
         // FLAG_KEEP_SCREEN_ON takes over keeping the display awake.
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        // Record whether the screen was already on BEFORE we wake it.
+        // We use this later to decide whether to turn it back off after 30s.
+        screenWasOn = pm.isInteractive
         @Suppress("DEPRECATION")
         wakeLock = pm.newWakeLock(
             PowerManager.FULL_WAKE_LOCK or
             PowerManager.ACQUIRE_CAUSES_WAKEUP or
             PowerManager.ON_AFTER_RELEASE,
             "sujood:PrayerLockWake"
-        ).also { it.acquire(10_000L) }
+        ).also { it.acquire(35_000L) }  // hold 35s — covers the 30s display window
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -135,6 +140,7 @@ class PrayerLockOverlayService : Service() {
                     WindowManager.LayoutParams.FLAG_FULLSCREEN,
             PixelFormat.OPAQUE
         ).apply { gravity = Gravity.CENTER }
+        overlayParams = params
 
         overlayView!!.apply {
             // Quote
@@ -166,6 +172,12 @@ class PrayerLockOverlayService : Service() {
                 progressPercent?.text  = "100%"
                 iPrayedButton?.isEnabled = true
                 iPrayedButton?.setOnClickListener { onPrayerCompleted(prayerName) }
+                // After 30s, turn screen off only if it was already off when prayer fired.
+                // Overlay stays alive — user sees it on next unlock.
+                serviceScope.launch(Dispatchers.Main) {
+                    delay(30_000L)
+                    if (!screenWasOn) allowScreenOff()
+                }
             } else {
                 iPrayedButton?.isEnabled = false
                 iPrayedButton?.alpha = 0.4f
@@ -194,7 +206,8 @@ class PrayerLockOverlayService : Service() {
                         delay(500)
                     }
 
-                    // Timer done — unlock button
+                    // Timer done — unlock button.
+                    // Turn screen off only if it was already off when prayer fired.
                     timerText?.text       = "00:00"
                     circularTimer?.progress = 0f
                     progressBar?.progress   = 100
@@ -202,6 +215,7 @@ class PrayerLockOverlayService : Service() {
                     iPrayedButton?.isEnabled = true
                     iPrayedButton?.alpha    = 1f
                     iPrayedButton?.setOnClickListener { onPrayerCompleted(prayerName) }
+                    if (!screenWasOn) allowScreenOff()
                 }
             }
         }
@@ -298,6 +312,14 @@ class PrayerLockOverlayService : Service() {
                 )
             }
         } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    /** Remove FLAG_KEEP_SCREEN_ON so Android can turn the screen off normally. */
+    private fun allowScreenOff() {
+        val view   = overlayView ?: return
+        val params = overlayParams ?: return
+        params.flags = params.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON.inv()
+        try { windowManager?.updateViewLayout(view, params) } catch (_: Exception) {}
     }
 
     private fun dismissOverlay() {
