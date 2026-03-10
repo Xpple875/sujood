@@ -17,6 +17,7 @@ import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -41,6 +42,7 @@ class PrayerLockOverlayService : Service() {
     private var windowManager: WindowManager? = null
     private var overlayView: View? = null
     private var mediaPlayer: MediaPlayer? = null
+    private var wakeLock: PowerManager.WakeLock? = null
     private var sensorManager: SensorManager? = null
     private var accelerometer: Sensor? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -59,6 +61,18 @@ class PrayerLockOverlayService : Service() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
+        // Acquire a full wake lock to turn the screen on when the alarm fires.
+        // We hold it for 10 seconds — long enough for the overlay to appear and
+        // FLAG_KEEP_SCREEN_ON takes over keeping the display awake.
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        @Suppress("DEPRECATION")
+        wakeLock = pm.newWakeLock(
+            PowerManager.FULL_WAKE_LOCK or
+            PowerManager.ACQUIRE_CAUSES_WAKEUP or
+            PowerManager.ON_AFTER_RELEASE,
+            "sujood:PrayerLockWake"
+        ).also { it.acquire(10_000L) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -289,6 +303,8 @@ class PrayerLockOverlayService : Service() {
     private fun dismissOverlay() {
         muteAudio()
         sensorManager?.unregisterListener(sensorListener)
+        try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (_: Exception) {}
+        wakeLock = null
         overlayView?.let {
             try { windowManager?.removeView(it) } catch (e: Exception) { e.printStackTrace() }
             overlayView = null
@@ -300,6 +316,7 @@ class PrayerLockOverlayService : Service() {
     override fun onDestroy() {
         muteAudio()
         sensorManager?.unregisterListener(sensorListener)
+        try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (_: Exception) {}
         overlayView?.let {
             try { windowManager?.removeView(it) } catch (e: Exception) { e.printStackTrace() }
         }
