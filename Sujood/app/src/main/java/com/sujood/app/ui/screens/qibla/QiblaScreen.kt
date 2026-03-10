@@ -151,7 +151,7 @@ fun QiblaScreen() {
     )
 
     val cur = smoothedRaw.takeIf { !it.isNaN() } ?: 0f
-    val needleTarget = accumulatedHead + shortestDelta(cur, ((qiblaDirection - cur + 360f) % 360f))
+    val needleTarget = accumulatedHead + shortestDelta(cur, qiblaDirection)
     val animatedNeedle by animateFloatAsState(
         targetValue = needleTarget,
         animationSpec = spring(Spring.DampingRatioNoBouncy, Spring.StiffnessLow),
