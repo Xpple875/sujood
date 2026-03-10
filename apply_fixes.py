@@ -1,94 +1,11 @@
-"""
-Sujood App Icon — high resolution version
-Run from repo root:  python fix_icon.py
-Requires: pip install Pillow
-"""
-import os, sys
-from PIL import Image
+import os
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-RES  = os.path.join(ROOT, "Sujood", "app", "src", "main", "res")
-SRC  = os.path.join(ROOT, "icon.png")
+path = os.path.join(ROOT, "Sujood", "app", "src", "main", "java",
+                    "com", "sujood", "app", "ui", "screens", "splash", "SplashScreen.kt")
 
-# Use much larger sizes so Android doesn't have to upscale
-SIZES = {
-    "mipmap-mdpi":    128,
-    "mipmap-hdpi":    192,
-    "mipmap-xhdpi":   256,
-    "mipmap-xxhdpi":  384,
-    "mipmap-xxxhdpi": 512,
-}
+content = 'package com.sujood.app.ui.screens.splash\n\nimport androidx.compose.animation.core.*\nimport androidx.compose.foundation.Canvas\nimport androidx.compose.foundation.Image\nimport androidx.compose.foundation.background\nimport androidx.compose.foundation.layout.*\nimport androidx.compose.foundation.shape.RoundedCornerShape\nimport androidx.compose.ui.layout.ContentScale\nimport androidx.compose.material3.MaterialTheme\nimport androidx.compose.material3.Text\nimport androidx.compose.runtime.*\nimport androidx.compose.ui.Alignment\nimport androidx.compose.ui.Modifier\nimport androidx.compose.ui.draw.alpha\nimport androidx.compose.ui.draw.clip\nimport androidx.compose.ui.draw.scale\nimport androidx.compose.ui.geometry.Offset\nimport androidx.compose.ui.graphics.*\nimport androidx.compose.ui.res.painterResource\nimport androidx.compose.ui.text.font.FontWeight\nimport androidx.compose.ui.unit.dp\nimport androidx.compose.ui.unit.sp\nimport com.sujood.app.R\nimport kotlin.random.Random\n\nprivate val BgDark      = Color(0xFF0D1829)\nprivate val PrimaryBlue = Color(0xFF1132D4)\n\n@Composable\nfun SplashScreen(onNavigate: () -> Unit) {\n    var showText     by remember { mutableStateOf(false) }\n    var showSubtitle by remember { mutableStateOf(false) }\n\n    LaunchedEffect(Unit) {\n        kotlinx.coroutines.delay(700)\n        showText = true\n        kotlinx.coroutines.delay(500)\n        showSubtitle = true\n        kotlinx.coroutines.delay(1500)\n        onNavigate()\n    }\n\n    val inf = rememberInfiniteTransition(label = "splash")\n    val iconScale by inf.animateFloat(\n        initialValue = 0.96f, targetValue = 1.04f,\n        animationSpec = infiniteRepeatable(tween(2200, easing = LinearEasing), RepeatMode.Reverse),\n        label = "scale"\n    )\n    val glowAlpha by inf.animateFloat(\n        initialValue = 0.12f, targetValue = 0.38f,\n        animationSpec = infiniteRepeatable(tween(1800, easing = LinearEasing), RepeatMode.Reverse),\n        label = "glow"\n    )\n\n    Box(\n        modifier = Modifier.fillMaxSize().background(BgDark),\n        contentAlignment = Alignment.Center\n    ) {\n        // Radial blue glow top-left\n        Box(modifier = Modifier.fillMaxSize().background(\n            Brush.radialGradient(\n                listOf(PrimaryBlue.copy(alpha = 0.15f), Color.Transparent),\n                center = Offset(0f, 0f), radius = 900f\n            )\n        ))\n\n        StarField(Modifier.fillMaxSize())\n\n        Column(\n            horizontalAlignment = Alignment.CenterHorizontally,\n            verticalArrangement = Arrangement.Center,\n            modifier = Modifier.fillMaxSize()\n        ) {\n            Spacer(Modifier.weight(1f))\n\n            // Glowing icon container\n            Box(contentAlignment = Alignment.Center) {\n                // Outer glow ring\n                Canvas(Modifier.size(150.dp)) {\n                    drawCircle(brush = Brush.radialGradient(\n                        listOf(PrimaryBlue.copy(alpha = glowAlpha), Color.Transparent)\n                    ))\n                }\n                // Your custom icon PNG — already has rounded corners + background baked in\n                Image(\n                    painter = painterResource(id = R.mipmap.ic_launcher_image),\n                    contentDescription = "Sujood",\n                    contentScale = ContentScale.Fit,\n                    modifier = Modifier\n                        .scale(iconScale)\n                        .size(110.dp)\n                        .clip(RoundedCornerShape(26.dp))\n                )\n            }\n\n            Spacer(Modifier.height(36.dp))\n\n            Text(\n                "Sujood",\n                style = MaterialTheme.typography.displayMedium.copy(\n                    fontWeight = FontWeight.Light, letterSpacing = 6.sp),\n                color = Color.White,\n                modifier = Modifier.alpha(if (showText) 1f else 0f)\n            )\n            Spacer(Modifier.height(10.dp))\n            Text(\n                "Connecting to the Divine",\n                style = MaterialTheme.typography.bodyLarge,\n                color = Color.White.copy(alpha = 0.40f),\n                modifier = Modifier.alpha(if (showSubtitle) 1f else 0f)\n            )\n\n            Spacer(Modifier.weight(1f))\n\n            // Pulsing dots\n            Row(\n                horizontalArrangement = Arrangement.spacedBy(6.dp),\n                modifier = Modifier\n                    .alpha(if (showSubtitle) 1f else 0f)\n                    .padding(bottom = 56.dp)\n            ) {\n                repeat(3) { i ->\n                    val da by inf.animateFloat(\n                        initialValue = 0.2f, targetValue = 0.85f,\n                        animationSpec = infiniteRepeatable(\n                            tween(550, delayMillis = i * 180, easing = LinearEasing),\n                            RepeatMode.Reverse),\n                        label = "d$i")\n                    Canvas(Modifier.size(6.dp)) { drawCircle(PrimaryBlue.copy(alpha = da)) }\n                }\n            }\n        }\n    }\n}\n\n@Composable\nprivate fun StarField(modifier: Modifier) {\n    val stars = remember {\n        List(30) {\n            Star(Random.nextFloat(), Random.nextFloat(),\n                Random.nextFloat() * 1.6f + 0.5f,\n                (Random.nextFloat() * 0.3f + 0.2f).coerceIn(0f, 1f))\n        }\n    }\n    val inf = rememberInfiniteTransition(label = "stars")\n    val alphas = stars.map { star ->\n        inf.animateFloat(\n            initialValue = star.a * 0.3f, targetValue = star.a,\n            animationSpec = infiniteRepeatable(\n                tween((Random.nextInt(1400) + 700), easing = LinearEasing),\n                RepeatMode.Reverse),\n            label = "s${star.hashCode()}")\n    }\n    Canvas(modifier) {\n        stars.forEachIndexed { i, st ->\n            drawCircle(Color.White.copy(alpha = alphas[i].value.coerceIn(0f, 1f)),\n                radius = st.r, center = Offset(st.x * size.width, st.y * size.height))\n        }\n    }\n}\n\nprivate data class Star(val x: Float, val y: Float, val r: Float, val a: Float)\n'
 
-ADAPTIVE_XML = """\
-<?xml version="1.0" encoding="utf-8"?>
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@android:color/transparent"/>
-    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
-</adaptive-icon>
-"""
-
-FOREGROUND_XML = """\
-<?xml version="1.0" encoding="utf-8"?>
-<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
-    android:src="@mipmap/ic_launcher_image"
-    android:gravity="fill"/>
-"""
-
-BACKGROUND_XML = """\
-<?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="#0E3854"/>
-</shape>
-"""
-
-if not os.path.isdir(RES):
-    print("❌ Can't find Sujood/app/src/main/res — run from repo root"); sys.exit(1)
-if not os.path.exists(SRC):
-    print("❌ Can't find icon.png in repo root"); sys.exit(1)
-
-src = Image.open(SRC).convert("RGBA")
-print(f"Loaded icon.png ({src.size[0]}x{src.size[1]}px)\n")
-
-# Delete any old conflicting PNGs
-deleted = 0
-for folder in SIZES:
-    for name in ("ic_launcher.png","ic_launcher_round.png","ic_launcher_foreground.png","ic_launcher_image.png"):
-        p = os.path.join(RES, folder, name)
-        if os.path.exists(p):
-            os.remove(p); deleted += 1
-if deleted:
-    print(f"  🗑  Removed {deleted} old PNG files\n")
-
-# Write high-res PNGs
-for folder, size in SIZES.items():
-    d = os.path.join(RES, folder)
-    os.makedirs(d, exist_ok=True)
-    resized = src.resize((size, size), Image.LANCZOS)
-    resized.save(os.path.join(d, "ic_launcher_image.png"), optimize=True)
-
-    for name in ("ic_launcher.xml", "ic_launcher_round.xml"):
-        with open(os.path.join(d, name), "w", encoding="utf-8") as f:
-            f.write(ADAPTIVE_XML)
-
-    print(f"  ✅ {folder:20s}  {size}x{size}px")
-
-# Write drawable XMLs
-drawable = os.path.join(RES, "drawable")
-os.makedirs(drawable, exist_ok=True)
-with open(os.path.join(drawable, "ic_launcher_foreground.xml"), "w", encoding="utf-8") as f:
-    f.write(FOREGROUND_XML)
-with open(os.path.join(drawable, "ic_launcher_background.xml"), "w", encoding="utf-8") as f:
-    f.write(BACKGROUND_XML)
-
-print("""
-  ✅ drawable XMLs updated
-
-✅ Done! Now run:
-  git add .
-  git commit -m "fix: high res app icon"
-  git push
-  cd Sujood && ./gradlew assembleDebug
-
-Then UNINSTALL the old app from your phone, then install the new APK.
-""")
+with open(path, "w", encoding="utf-8", newline="\n") as f:
+    f.write(content)
+print("✅ SplashScreen.kt updated — splash now uses your custom icon PNG")

@@ -2,13 +2,11 @@ package com.sujood.app.ui.screens.splash
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Mosque
-import androidx.compose.material3.Icon
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -19,13 +17,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sujood.app.R
 import kotlin.random.Random
 
 private val BgDark      = Color(0xFF0D1829)
-private val IconBg      = Color(0xFF0D2233)
 private val PrimaryBlue = Color(0xFF1132D4)
 
 @Composable
@@ -83,23 +82,16 @@ fun SplashScreen(onNavigate: () -> Unit) {
                         listOf(PrimaryBlue.copy(alpha = glowAlpha), Color.Transparent)
                     ))
                 }
-                // Icon tile — rounded square matching reference image
-                Box(
+                // Your custom icon PNG — already has rounded corners + background baked in
+                Image(
+                    painter = painterResource(id = R.mipmap.ic_launcher_image),
+                    contentDescription = "Sujood",
+                    contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .scale(iconScale)
                         .size(110.dp)
                         .clip(RoundedCornerShape(26.dp))
-                        .background(IconBg)
-                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(26.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Mosque,
-                        contentDescription = "Sujood",
-                        tint = Color.White,
-                        modifier = Modifier.size(62.dp)
-                    )
-                }
+                )
             }
 
             Spacer(Modifier.height(36.dp))
