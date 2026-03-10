@@ -297,10 +297,16 @@ private fun HeroSection(
             }
 
             Spacer(Modifier.height(32.dp))
-            SunArcWidget(Modifier.fillMaxWidth(0.48f).height(54.dp), prayerTimes, completedPrayers, nextPrayerInfo)
             
-            Spacer(Modifier.height(12.dp))
-            NextPrayerPill(nextPrayerInfo)
+            // Layered Arc and Pill (Z-index overlap)
+            Box(contentAlignment = Alignment.BottomCenter) {
+                SunArcWidget(
+                    Modifier.fillMaxWidth(0.48f).height(54.dp),
+                    prayerTimes, completedPrayers, nextPrayerInfo
+                )
+                // Pushed up slightly and wider
+                NextPrayerPill(nextPrayerInfo, Modifier.padding(bottom = 8.dp).width(190.dp))
+            }
         }
     }
 }
@@ -335,7 +341,7 @@ private fun SunArcWidget(modifier: Modifier, prayerTimes: List<PrayerTime>,
 }
 
 @Composable
-private fun NextPrayerPill(nextPrayerInfo: GetNextPrayerUseCase.NextPrayerInfo?) {
+private fun NextPrayerPill(nextPrayerInfo: GetNextPrayerUseCase.NextPrayerInfo?, modifier: Modifier = Modifier) {
     val pillText = when {
         nextPrayerInfo != null && (nextPrayerInfo.isCurrentPrayer) -> "Time for ${nextPrayerInfo.prayer.displayName}"
         nextPrayerInfo != null -> "Next: ${nextPrayerInfo.prayer.displayName}"
@@ -343,12 +349,11 @@ private fun NextPrayerPill(nextPrayerInfo: GetNextPrayerUseCase.NextPrayerInfo?)
     }
     if (pillText.isNotEmpty()) {
         Box(
-            modifier = Modifier
-                .width(160.dp)
-                .height(64.dp)
+            modifier = modifier
                 .clip(CircleShape)
                 .background(BackgroundDark.copy(alpha = 0.85f))
-                .border(1.dp, PrimaryBlue.copy(alpha = 0.25f), CircleShape),
+                .border(1.dp, PrimaryBlue.copy(alpha = 0.25f), CircleShape)
+                .padding(vertical = 10.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
