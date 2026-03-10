@@ -294,16 +294,16 @@ private fun HeroSection(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
-            SunArcWidget(Modifier.fillMaxWidth().height(120.dp), prayerTimes, completedPrayers, nextPrayerInfo)
-            Spacer(Modifier.height(4.dp))
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), Arrangement.SpaceBetween) {
+            Spacer(Modifier.height(10.dp))
+            SunArcWidget(Modifier.fillMaxWidth(0.52f).height(56.dp), prayerTimes, completedPrayers, nextPrayerInfo)
+            Spacer(Modifier.height(2.dp))
+            Row(Modifier.fillMaxWidth(0.52f), Arrangement.SpaceBetween) {
                 listOf("FAJR","DHUHR","ASR","MAGHRIB","ISHA").forEach { name ->
-                    Text(name, fontSize = 8.sp, fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp, color = Color.White.copy(alpha = 0.35f))
+                    Text(name, fontSize = 7.sp, fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp, color = Color.White.copy(alpha = 0.35f))
                 }
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
             StreakAndDotsCard(streakDays, prayerTimes, completedPrayers)
         }
     }
@@ -326,13 +326,13 @@ private fun SunArcWidget(modifier: Modifier, prayerTimes: List<PrayerTime>,
             val cx = size.width / 2f; val cy = size.height + size.height * 0.05f; val r = size.width * 0.44f
             drawPath(Path().apply {
                 addArc(Rect(cx - r, cy - r, cx + r, cy + r), 180f, 180f)
-            }, Color.White.copy(alpha = 0.18f), style = Stroke(2f,
-                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f))))
+            }, Color.White.copy(alpha = 0.10f), style = Stroke(3f,
+                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8f, 16f))))
             val ang = Math.toRadians(180.0 + progress * 180.0)
             val sx = cx + r * cos(ang).toFloat(); val sy = cy + r * sin(ang).toFloat()
             drawCircle(Brush.radialGradient(listOf(Color(0xFFFBBF24).copy(alpha = 0.35f), Color.Transparent),
-                Offset(sx, sy), 40f), 40f, Offset(sx, sy))
-            drawCircle(Color(0xFFFBBF24), 9f, Offset(sx, sy))
+                Offset(sx, sy), 48f), 48f, Offset(sx, sy))
+            drawCircle(Color(0xFFFBBF24), 13f, Offset(sx, sy))
         }
         if (pillText.isNotEmpty()) {
             Row(Modifier.clip(CircleShape).background(BackgroundDark.copy(alpha = 0.75f))

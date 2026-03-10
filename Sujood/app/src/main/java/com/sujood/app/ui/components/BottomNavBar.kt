@@ -66,26 +66,29 @@ fun GlassmorphicBottomNavBar(
                 )),
                 shape = shape
             )
-            // Increased from 84.dp to 104.dp — extra 20dp of breathing room above icons
-            .height(104.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding()
-                // Push icons down slightly so the extra top space is above them, not below
-                .padding(horizontal = 4.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            items.forEach { item ->
-                NavItem(
-                    item = item,
-                    isSelected = currentRoute == item.route,
-                    onClick = { onNavigate(item.route) },
-                    modifier = Modifier.weight(1f)
-                )
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Fixed-height content area — always 72dp regardless of system nav mode
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(72.dp)
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                items.forEach { item ->
+                    NavItem(
+                        item = item,
+                        isSelected = currentRoute == item.route,
+                        onClick = { onNavigate(item.route) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
+            // Spacer that pushes down to fill system navigation bar area
+            // (large on 3-button nav, zero on gesture nav)
+            Spacer(Modifier.navigationBarsPadding())
         }
     }
 }
