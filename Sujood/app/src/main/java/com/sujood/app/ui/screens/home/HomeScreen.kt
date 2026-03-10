@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Brightness3
 import androidx.compose.material.icons.filled.NightlightRound
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Flare
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -205,10 +206,14 @@ fun HomeScreen(
                         nextPrayerInfo   = uiState.nextPrayerInfo,
                         prayerTimes      = uiState.prayerTimes,
                         completedPrayers = uiState.completedPrayersToday.toSet(),
-                        streakDays       = uiState.streakDays,
-                        onCompleteClick  = { viewModel.logPrayerCompletion(it) },
                         onLocationClick  = { showLocationDialog = true }
                     )
+                }
+                item {
+                    AnimatedVisibility(visible = visible, enter = fadeIn(tween(500, delayMillis = 100))) {
+                        StreakAndDotsCard(uiState.streakDays, uiState.prayerTimes, uiState.completedPrayersToday.toSet(), 
+                            Modifier.padding(horizontal = 16.dp, vertical = 20.dp))
+                    }
                 }
                 item {
                     AnimatedVisibility(visible = visible, enter = fadeIn(tween(400, delayMillis = 100))) {
@@ -253,20 +258,17 @@ private fun HeroSection(
     nextPrayerInfo: GetNextPrayerUseCase.NextPrayerInfo?,
     prayerTimes: List<PrayerTime>,
     completedPrayers: Set<Prayer>,
-    streakDays: Int,
-    onCompleteClick: (Prayer) -> Unit,
     onLocationClick: () -> Unit
 ) {
+    // Reference HTML h-[35%] style: Use a clean gradient background with single border
     Box(Modifier.fillMaxWidth()
-        .shadow(24.dp, RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
-            spotColor = PrimaryBlue.copy(alpha = 0.3f))
         .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
-        .background(Brush.verticalGradient(listOf(PrimaryBlue.copy(alpha = 0.18f), BackgroundDark)))
-        .border(1.dp, Brush.verticalGradient(listOf(PrimaryBlue.copy(alpha = 0.3f), Color.Transparent)),
+        .background(Brush.verticalGradient(listOf(PrimaryBlue.copy(alpha = 0.12f), BackgroundDark)))
+        .border(1.dp, PrimaryBlue.copy(alpha = 0.20f),
             RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
     ) {
         Column(Modifier.fillMaxWidth().statusBarsPadding()
-            .padding(horizontal = 20.dp).padding(top = 16.dp, bottom = 24.dp),
+            .padding(horizontal = 24.dp).padding(top = 20.dp, bottom = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally) {
 
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
@@ -294,17 +296,11 @@ private fun HeroSection(
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
-            SunArcWidget(Modifier.fillMaxWidth(0.52f).height(56.dp), prayerTimes, completedPrayers, nextPrayerInfo)
-            Spacer(Modifier.height(2.dp))
-            Row(Modifier.fillMaxWidth(0.52f), Arrangement.SpaceBetween) {
-                listOf("FAJR","DHUHR","ASR","MAGHRIB","ISHA").forEach { name ->
-                    Text(name, fontSize = 7.sp, fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp, color = Color.White.copy(alpha = 0.35f))
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-            StreakAndDotsCard(streakDays, prayerTimes, completedPrayers)
+            Spacer(Modifier.height(32.dp))
+            SunArcWidget(Modifier.fillMaxWidth(0.55f).height(64.dp), prayerTimes, completedPrayers, nextPrayerInfo)
+            
+            Spacer(Modifier.height(12.dp))
+            NextPrayerPill(nextPrayerInfo)
         }
     }
 }
@@ -316,33 +312,44 @@ private fun SunArcWidget(modifier: Modifier, prayerTimes: List<PrayerTime>,
     completedPrayers: Set<Prayer>, nextPrayerInfo: GetNextPrayerUseCase.NextPrayerInfo?) {
     val progress by animateFloatAsState(getDayProgress(System.currentTimeMillis()),
         tween(1500, easing = LinearOutSlowInEasing), label = "sun")
+    Canvas(modifier) {
+        val cx = size.width / 2f
+        val cy = size.height + (size.height * 0.15f) // Move center down slightly
+        val r = size.width * 0.48f // Slightly larger radius
+        
+        // Dotted arc — made "more solid" and thicker per user feedback
+        drawPath(Path().apply {
+            addArc(Rect(cx - r, cy - r, cx + r, cy + r), 180f, 180f)
+        }, Color.White.copy(alpha = 0.35f), style = Stroke(4f, // Thicker stroke
+            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 16f)))) // Longer gaps
+        
+        val ang = Math.toRadians(180.0 + progress * 180.0)
+        val sx = cx + r * cos(ang).toFloat()
+        val sy = cy + r * sin(ang).toFloat()
+        
+        // Sun with bigger glow
+        drawCircle(Brush.radialGradient(listOf(Color(0xFFFBBF24).copy(alpha = 0.45f), Color.Transparent),
+            Offset(sx, sy), 56f), 56f, Offset(sx, sy))
+        drawCircle(Color(0xFFFBBF24), 14f, Offset(sx, sy)) // Bigger sun
+    }
+}
+
+@Composable
+private fun NextPrayerPill(nextPrayerInfo: GetNextPrayerUseCase.NextPrayerInfo?) {
     val pillText = when {
-        nextPrayerInfo != null && nextPrayerInfo.isCurrentPrayer -> "Time for ${nextPrayerInfo.prayer.displayName}"
+        nextPrayerInfo != null && (nextPrayerInfo.isCurrentPrayer) -> "Time for ${nextPrayerInfo.prayer.displayName}"
         nextPrayerInfo != null -> "Next: ${nextPrayerInfo.prayer.displayName}"
         else -> ""
     }
-    Box(modifier, contentAlignment = Alignment.BottomCenter) {
-        Canvas(Modifier.fillMaxSize()) {
-            val cx = size.width / 2f; val cy = size.height + size.height * 0.05f; val r = size.width * 0.44f
-            drawPath(Path().apply {
-                addArc(Rect(cx - r, cy - r, cx + r, cy + r), 180f, 180f)
-            }, Color.White.copy(alpha = 0.10f), style = Stroke(3f,
-                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8f, 16f))))
-            val ang = Math.toRadians(180.0 + progress * 180.0)
-            val sx = cx + r * cos(ang).toFloat(); val sy = cy + r * sin(ang).toFloat()
-            drawCircle(Brush.radialGradient(listOf(Color(0xFFFBBF24).copy(alpha = 0.35f), Color.Transparent),
-                Offset(sx, sy), 48f), 48f, Offset(sx, sy))
-            drawCircle(Color(0xFFFBBF24), 13f, Offset(sx, sy))
-        }
-        if (pillText.isNotEmpty()) {
-            Row(Modifier.clip(CircleShape).background(BackgroundDark.copy(alpha = 0.75f))
-                .border(1.dp, PrimaryBlue.copy(alpha = 0.3f), CircleShape)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.size(20.dp).clip(CircleShape).border(1.5.dp, PrimaryBlue.copy(alpha = 0.6f), CircleShape))
-                Text(pillText, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = Color.White)
-            }
+    if (pillText.isNotEmpty()) {
+        Row(Modifier.clip(CircleShape).background(BackgroundDark.copy(alpha = 0.85f))
+            .border(1.dp, PrimaryBlue.copy(alpha = 0.25f), CircleShape)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Checkbox icon per HTML ref
+            Icon(Icons.Filled.CheckCircle, null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
+            Text(pillText, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold, color = Color.White)
         }
     }
 }
@@ -350,8 +357,8 @@ private fun SunArcWidget(modifier: Modifier, prayerTimes: List<PrayerTime>,
 // ── Streak & dots ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun StreakAndDotsCard(streakDays: Int, prayerTimes: List<PrayerTime>, completedPrayers: Set<Prayer>) {
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+private fun StreakAndDotsCard(streakDays: Int, prayerTimes: List<PrayerTime>, completedPrayers: Set<Prayer>, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
         .background(Brush.horizontalGradient(listOf(PrimaryBlue.copy(alpha = 0.22f), Color(0xFF9333EA).copy(alpha = 0.10f))))
         .border(1.dp, PrimaryBlue.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
         .padding(horizontal = 20.dp, vertical = 16.dp)) {
