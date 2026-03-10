@@ -297,7 +297,7 @@ private fun HeroSection(
             }
 
             Spacer(Modifier.height(32.dp))
-            SunArcWidget(Modifier.fillMaxWidth(0.55f).height(64.dp), prayerTimes, completedPrayers, nextPrayerInfo)
+            SunArcWidget(Modifier.fillMaxWidth(0.48f).height(54.dp), prayerTimes, completedPrayers, nextPrayerInfo)
             
             Spacer(Modifier.height(12.dp))
             NextPrayerPill(nextPrayerInfo)
@@ -342,14 +342,22 @@ private fun NextPrayerPill(nextPrayerInfo: GetNextPrayerUseCase.NextPrayerInfo?)
         else -> ""
     }
     if (pillText.isNotEmpty()) {
-        Row(Modifier.clip(CircleShape).background(BackgroundDark.copy(alpha = 0.85f))
-            .border(1.dp, PrimaryBlue.copy(alpha = 0.25f), CircleShape)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Checkbox icon per HTML ref
-            Icon(Icons.Filled.CheckCircle, null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
-            Text(pillText, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold, color = Color.White)
+        Box(
+            modifier = Modifier
+                .width(160.dp)
+                .height(64.dp)
+                .clip(CircleShape)
+                .background(BackgroundDark.copy(alpha = 0.85f))
+                .border(1.dp, PrimaryBlue.copy(alpha = 0.25f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = pillText,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                letterSpacing = 2.sp
+            )
         }
     }
 }
