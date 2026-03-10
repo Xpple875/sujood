@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -107,6 +108,14 @@ fun HomeScreen(
         if (!locationPermission.status.isGranted) locationPermission.launchPermissionRequest()
     }
     LaunchedEffect(Unit) { delay(100); visible = true }
+
+    // Show a toast whenever an error arrives but prayer times are already loaded
+    // (so the full-screen error card won't show — the user needs feedback another way)
+    LaunchedEffect(uiState.error) {
+        if (uiState.error != null && uiState.prayerTimes.isNotEmpty()) {
+            Toast.makeText(context, uiState.error, Toast.LENGTH_LONG).show()
+        }
+    }
 
     // ── Inline location picker dialog ─────────────────────────────────────
     if (showLocationDialog) {

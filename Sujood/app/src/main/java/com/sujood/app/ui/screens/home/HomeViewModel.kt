@@ -373,6 +373,13 @@ class HomeViewModel(
         if (cityName.isBlank()) {
             _uiState.value = _uiState.value.copy(error = "Please enter a city name"); return
         }
+        if (!isOnline(context)) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "You're offline. Connect to the internet to load prayer times for a new city."
+            )
+            return
+        }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val settings = userPreferences.userSettings.first()
