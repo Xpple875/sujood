@@ -8,6 +8,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -710,6 +716,27 @@ private fun AdhanPickerDialog(currentName: String, onDismiss: () -> Unit, onSele
             }
         },
         confirmButton = {}, containerColor = MidnightBlue)
+}
+
+
+@Composable
+private fun rememberGooglePhotoPainter(url: String): androidx.compose.ui.graphics.painter.Painter {
+    var bitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    LaunchedEffect(url) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                conn.connect()
+                val bmp = android.graphics.BitmapFactory.decodeStream(conn.inputStream)
+                conn.disconnect()
+                bitmap = bmp
+            } catch (_: Exception) { }
+        }
+    }
+    return if (bitmap != null)
+        BitmapPainter(bitmap!!.asImageBitmap())
+    else
+        androidx.compose.ui.graphics.painter.ColorPainter(com.sujood.app.ui.theme.PrimaryBlue.copy(alpha = 0.2f))
 }
 
 private suspend fun rescheduleAlarms(context: android.content.Context, userPreferences: UserPreferences) {
