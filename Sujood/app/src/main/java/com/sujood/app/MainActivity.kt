@@ -56,6 +56,8 @@ import com.sujood.app.ui.screens.settings.SettingsScreen
 import com.sujood.app.ui.theme.DeepNavy
 import com.sujood.app.ui.theme.SujoodTheme
 import kotlinx.coroutines.delay
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -128,6 +130,7 @@ fun SujoodApp(
     repository: PrayerTimesRepository
 ) {
     val navController = rememberNavController()
+    val scope = rememberCoroutineScope()
     val settings by userPreferences.userSettings.collectAsState(initial = com.sujood.app.domain.model.UserSettings())
     val hasCompletedOnboarding = settings.hasCompletedOnboarding
     
@@ -175,8 +178,18 @@ fun SujoodApp(
                             // onNavigate again after the animation delay
                             val loaded = splashSettings ?: return@SplashScreen
                             if (loaded.hasCompletedOnboarding) {
-                                navController.navigate(Screen.Home.route) {
-                                    popUpTo(Screen.Splash.route) { inclusive = true }
+                                // Increment open count and show paywall every 3rd launch
+                                scope.launch {
+                                    val count = userPreferences.incrementAndGetAppOpenCount()
+                                    if (count % 3 == 0) {
+                                        navController.navigate(Screen.Monetization.route) {
+                                            popUpTo(Screen.Splash.route) { inclusive = true }
+                                        }
+                                    } else {
+                                        navController.navigate(Screen.Home.route) {
+                                            popUpTo(Screen.Splash.route) { inclusive = true }
+                                        }
+                                    }
                                 }
                             } else {
                                 navController.navigate(Screen.Onboarding.route) {

@@ -41,6 +41,7 @@ class UserPreferences(private val context: Context) {
         val ISHA_LOCK               = booleanPreferencesKey("isha_lock_enabled")
 
         val ONBOARDING_COMPLETED    = booleanPreferencesKey("onboarding_completed")
+        val APP_OPEN_COUNT          = intPreferencesKey("app_open_count")
 
         // Location
         val USE_GPS_LOCATION        = booleanPreferencesKey("use_gps_location")
@@ -191,6 +192,17 @@ class UserPreferences(private val context: Context) {
                 "ISHA"    -> prefs[PreferencesKeys.ISHA_LOCK] = enabled
             }
         }
+    }
+
+    /** Increments the app open counter and returns the new count. */
+    suspend fun incrementAndGetAppOpenCount(): Int {
+        var newCount = 0
+        context.dataStore.edit { prefs ->
+            val current = prefs[PreferencesKeys.APP_OPEN_COUNT] ?: 0
+            newCount = current + 1
+            prefs[PreferencesKeys.APP_OPEN_COUNT] = newCount
+        }
+        return newCount
     }
 
     suspend fun setOnboardingCompleted() {
