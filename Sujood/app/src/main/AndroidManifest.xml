@@ -78,7 +78,6 @@
             android:name=".service.LockScreenActivity"
             android:exported="false"
             android:showWhenLocked="true"
-            android:turnScreenOn="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"
             android:taskAffinity=""

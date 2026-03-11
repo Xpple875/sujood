@@ -4,6 +4,6 @@ to install: & "C:\Users\hamza\AppData\Local\Android\Sdk\platform-tools\adb.exe" 
 
 to test prayer overlay:
 
-MAKE SURE THE android:exported="false" in PrayerLockOverlayService is set to true, CHANGE THIS BACK AFTER DONE TESTING HUGE SECURITY FLAW
+MAKE SURE THE android:exported="false" in PrayerLockOverlayService in android manifst.xml is set to true, CHANGE THIS BACK AFTER DONE TESTING HUGE SECURITY FLAW
 
 & "C:\Users\hamza\AppData\Local\Android\Sdk\platform-tools\adb.exe" shell am startforegroundservice -n com.sujood.app/.service.PrayerLockOverlayService --es PRAYER_NAME Fajr --es PRAYER_ARABIC ?????

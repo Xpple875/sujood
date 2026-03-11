@@ -46,6 +46,7 @@ class PrayerLockOverlayService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var overlayParams: WindowManager.LayoutParams? = null
     private var screenWasOn: Boolean = true  // was screen on before we woke it?
+    private var hiddenForCall: Boolean = false
     private var sensorManager: SensorManager? = null
     private var accelerometer: Sensor? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -64,6 +65,7 @@ class PrayerLockOverlayService : Service() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
 
         // Acquire a full wake lock to turn the screen on when the alarm fires.
         // We hold it for 10 seconds — long enough for the overlay to appear and
@@ -141,7 +143,6 @@ class PrayerLockOverlayService : Service() {
                 @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
                     WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
                     WindowManager.LayoutParams.FLAG_FULLSCREEN,
             PixelFormat.OPAQUE
@@ -164,10 +165,17 @@ class PrayerLockOverlayService : Service() {
             // Emergency: open phone dialer so user can call even during lock
             val emergencyBtn = findViewById<Button>(R.id.emergencyPhoneButton)
             emergencyBtn?.setOnClickListener {
+                // Hide overlay so the phone app is fully usable
+                overlayView?.visibility = android.view.View.GONE
+                hiddenForCall = true
                 val dialIntent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
-                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                    this.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
                 }
                 applicationContext.startActivity(dialIntent)
+                // Poll until the dialer is no longer the foreground app, then re-show
+                serviceScope.launch(Dispatchers.Main) {
+                    waitForCallEnd()
+                }
             }
 
             if (minDurationMs <= 0L) {
@@ -262,7 +270,6 @@ class PrayerLockOverlayService : Service() {
             .setSmallIcon(R.drawable.ic_prayer_icon)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setFullScreenIntent(pi, true)
             .setContentIntent(pi)
             .build()
     }
@@ -322,12 +329,54 @@ class PrayerLockOverlayService : Service() {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    /** Remove FLAG_KEEP_SCREEN_ON so Android can turn the screen off normally. */
+    /**
+     * Polls every second until the phone/dialer app is no longer in the foreground,
+     * then re-shows the overlay.
+     */
+    @Suppress("DEPRECATION")
+    private suspend fun waitForCallEnd() {
+        val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+
+        fun topPackage(): String = try {
+            am.getRunningTasks(1)?.firstOrNull()?.topActivity?.packageName ?: ""
+        } catch (_: Exception) { "" }
+
+        fun isDialer(pkg: String) = pkg.contains("dialer", ignoreCase = true)
+            || pkg.contains("incall", ignoreCase = true)
+            || pkg.contains("phone", ignoreCase = true)
+
+        // Phase 1: wait until the dialer IS in the foreground (up to 5s)
+        // This ensures we don't misfire before the Intent has had time to launch.
+        val deadline = System.currentTimeMillis() + 5_000L
+        while (System.currentTimeMillis() < deadline) {
+            if (isDialer(topPackage())) break
+            delay(300L)
+        }
+
+        // Phase 2: now wait until the dialer is NO LONGER in the foreground
+        while (hiddenForCall) {
+            if (!isDialer(topPackage())) {
+                hiddenForCall = false
+                overlayView?.visibility = android.view.View.VISIBLE
+                break
+            }
+            delay(500L)
+        }
+    }
+
+    /** Remove FLAG_KEEP_SCREEN_ON from both the overlay and the LockScreenActivity,
+     *  then release the wakelock so Android's normal screen timeout takes over. */
     private fun allowScreenOff() {
+        // Clear keep-screen-on from overlay window
         val view   = overlayView ?: return
         val params = overlayParams ?: return
         params.flags = params.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON.inv()
         try { windowManager?.updateViewLayout(view, params) } catch (_: Exception) {}
+        // Tell LockScreenActivity to drop its keep-screen-on too
+        LockScreenActivity.allowScreenOff(applicationContext)
+        // Release wakelock — Android can now turn the screen off at its discretion
+        try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (_: Exception) {}
+        wakeLock = null
     }
 
     private fun dismissOverlay() {
