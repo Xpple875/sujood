@@ -28,6 +28,7 @@
 
     <!-- Wake lock for alarms -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
 
     <!--
         Required on Android 11+ (API 30+) to read icons / info for other apps.
@@ -72,11 +73,22 @@
             </intent-filter>
         </activity>
 
+        <!-- Transparent activity used to dismiss the keyguard so the overlay appears above the lock screen -->
+        <activity
+            android:name=".service.LockScreenActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleInstance" />
+
         <!-- Overlay Service for Prayer Lock -->
         <service
             android:name=".service.PrayerLockOverlayService"
             android:enabled="true"
-            android:exported="false"
+            android:exported="true"
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
