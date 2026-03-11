@@ -42,6 +42,8 @@ private val CheckColor   = Color(0xFF93C5FD)
 @Composable
 fun MonetizationScreen(
     userPreferences: UserPreferences,
+    onPrivacy: () -> Unit = {},
+    onTerms: () -> Unit = {},
     onContinue: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -292,12 +294,16 @@ fun MonetizationScreen(
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
                 modifier = Modifier.padding(bottom = 32.dp)
             ) {
-                listOf("Privacy Policy", "Terms of Service", "Restore Purchase").forEach { label ->
+                listOf(
+                    "Privacy Policy" to onPrivacy,
+                    "Terms of Service" to onTerms,
+                    "Restore Purchase" to ({})
+                ).forEach { (label, action) ->
                     Text(
                         text = label,
                         fontSize = 11.sp,
                         color = TextTertiary,
-                        modifier = Modifier.clickable { /* TODO */ }
+                        modifier = Modifier.clickable { action() }
                     )
                 }
             }

@@ -140,6 +140,8 @@ fun SettingsScreen(
     userPreferences: UserPreferences,
     authRepository: com.sujood.app.data.auth.AuthRepository? = null,
     onNavigateBack: () -> Unit,
+    onPrivacy: () -> Unit = {},
+    onTerms: () -> Unit = {},
     onSignOut: () -> Unit = {}
 ) {
     val context  = LocalContext.current

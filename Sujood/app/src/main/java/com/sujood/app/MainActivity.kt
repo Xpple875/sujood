@@ -126,6 +126,8 @@ sealed class Screen(val route: String) {
     data object Insights : Screen("insights")
     data object Settings : Screen("settings")
     data object Login    : Screen("login")
+    data object Privacy  : Screen("privacy")
+    data object Terms    : Screen("terms")
 }
 
 @OptIn(ExperimentalPermissionsApi::class)
@@ -231,6 +233,8 @@ fun SujoodApp(
                 composable(Screen.Monetization.route) {
                     MonetizationScreen(
                         userPreferences = userPreferences,
+                        onPrivacy = { navController.navigate(Screen.Privacy.route) },
+                        onTerms   = { navController.navigate(Screen.Terms.route) },
                         onContinue = {
                             navController.navigate(Screen.Home.route) {
                                 popUpTo(Screen.Monetization.route) { inclusive = true }
@@ -263,6 +267,8 @@ fun SujoodApp(
                         userPreferences = userPreferences,
                         authRepository = authRepository,
                         onNavigateBack = { navController.popBackStack() },
+                        onPrivacy = { navController.navigate(Screen.Privacy.route) },
+                        onTerms   = { navController.navigate(Screen.Terms.route) },
                         onSignOut = {
                             scope.launch {
                                 authRepository.signOut()
@@ -308,6 +314,19 @@ fun SujoodApp(
                                 }
                             }
                         }
+                    )
+                }
+                composable(Screen.Privacy.route) {
+                    com.sujood.app.ui.screens.legal.LegalScreen(
+                        type = com.sujood.app.ui.screens.legal.LegalType.PRIVACY_POLICY,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(Screen.Terms.route) {
+                    com.sujood.app.ui.screens.legal.LegalScreen(
+                        type = com.sujood.app.ui.screens.legal.LegalType.TERMS_OF_SERVICE,
+                        onBack = { navController.popBackStack() }
                     )
                 }
             }
