@@ -109,6 +109,11 @@ class PrayerLockOverlayService : Service() {
             }
 
             launch(Dispatchers.Main) {
+                // Start the invisible LockScreenActivity — it holds the showWhenLocked
+                // privilege so our overlay appears on top of the lock screen.
+                // We wait 300ms for it to be in the foreground before adding the overlay.
+                LockScreenActivity.start(applicationContext)
+                kotlinx.coroutines.delay(300)
                 showOverlay(prayerName, quote, minDurationMs)
             }
         }
@@ -330,6 +335,8 @@ class PrayerLockOverlayService : Service() {
         sensorManager?.unregisterListener(sensorListener)
         try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (_: Exception) {}
         wakeLock = null
+        // Tell the LockScreenActivity it can finish now
+        LockScreenActivity.finish(applicationContext)
         overlayView?.let {
             try { windowManager?.removeView(it) } catch (e: Exception) { e.printStackTrace() }
             overlayView = null

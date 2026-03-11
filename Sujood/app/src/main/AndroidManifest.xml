@@ -73,7 +73,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Transparent activity used to dismiss the keyguard so the overlay appears above the lock screen -->
+        <!-- Transparent activity that holds showWhenLocked privilege for the prayer overlay -->
         <activity
             android:name=".service.LockScreenActivity"
             android:exported="false"
@@ -82,7 +82,8 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"
             android:taskAffinity=""
-            android:launchMode="singleInstance" />
+            android:launchMode="singleInstance"
+            android:showOnLockScreen="true" />
 
         <!-- Overlay Service for Prayer Lock -->
         <service

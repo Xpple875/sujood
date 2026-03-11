@@ -1,45 +1,80 @@
 package com.sujood.app.service
 
 import android.app.Activity
-import android.app.KeyguardManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 
 /**
- * Invisible activity whose sole job is to sit above the lock screen so that
- * the TYPE_APPLICATION_OVERLAY window (PrayerLockOverlayService) is visible.
+ * Invisible activity that holds the "show above lock screen" privilege for the overlay.
  *
- * On Android 8.1+ TYPE_APPLICATION_OVERLAY cannot show over the keyguard on
- * its own — but an Activity with showWhenLocked/turnScreenOn CAN, and any
- * overlay added while that Activity is in the foreground inherits that privilege.
+ * TYPE_APPLICATION_OVERLAY windows cannot appear above the keyguard on their own —
+ * but an Activity with showWhenLocked=true CAN, and the overlay inherits that privilege
+ * while this activity is in the foreground.
  *
- * This Activity is fully transparent and has no UI of its own.
- * It finishes itself after a short delay so the overlay remains but the
- * activity stack is clean.
+ * This activity is fully transparent and has no UI. It stays alive (but invisible)
+ * until it receives the FINISH_LOCK_ACTIVITY broadcast, which PrayerLockOverlayService
+ * sends when the overlay is dismissed. This ensures the overlay stays visible on the
+ * lock screen for the full duration.
+ *
+ * Crucially: we do NOT call requestDismissKeyguard — the phone stays locked.
  */
 class LockScreenActivity : Activity() {
+
+    private val finishReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            finish()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Tell the window manager this activity can show above the lock screen
+        // Show above the lock screen without dismissing it
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
-            val km = getSystemService(KEYGUARD_SERVICE) as? KeyguardManager
-            km?.requestDismissKeyguard(this, null)
+            // NOTE: intentionally NOT calling requestDismissKeyguard — phone stays locked
         } else {
             @Suppress("DEPRECATION")
             window.addFlags(
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
             )
         }
 
-        // No layout — fully transparent, just here to unlock the keyguard
-        // Finish immediately so we don't sit in the back stack
-        finish()
+        // Keep screen on while the overlay is showing
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // No layout — fully transparent background
+        // Stay alive until the overlay service tells us to finish
+        registerReceiver(finishReceiver, IntentFilter(ACTION_FINISH),
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                RECEIVER_NOT_EXPORTED else 0
+        )
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try { unregisterReceiver(finishReceiver) } catch (_: Exception) {}
+    }
+
+    companion object {
+        const val ACTION_FINISH = "com.sujood.app.FINISH_LOCK_ACTIVITY"
+
+        fun start(context: Context) {
+            val intent = Intent(context, LockScreenActivity::class.java).apply {
+                this.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            context.startActivity(intent)
+        }
+
+        fun finish(context: Context) {
+            context.sendBroadcast(Intent(ACTION_FINISH))
+        }
     }
 }
