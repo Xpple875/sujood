@@ -17,13 +17,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val BgTop     = Color(0xFF0A0E1A)
-private val BgBottom  = Color(0xFF0D1230)
-private val CardBg    = Color(0xFF111827)
-private val CardBorder = Color(0xFF1E2A45)
+private val BgTop      = Color(0xFF0A0E1A)
+private val BgBottom   = Color(0xFF0D1230)
+private val CardBg     = Color(0xFF111827)
 private val AccentBlue = Color(0xFF3B82F6)
-private val TextMain  = Color(0xFFE2E8F0)
-private val TextMuted = Color(0xFF64748B)
+private val TextMain   = Color(0xFFE2E8F0)
+private val TextMuted  = Color(0xFF64748B)
 
 enum class LegalType { PRIVACY_POLICY, TERMS_OF_SERVICE }
 
@@ -32,98 +31,61 @@ data class LegalSection(val heading: String, val body: String)
 private val PRIVACY_SECTIONS = listOf(
     LegalSection(
         "Overview",
-        "Sujood ("we", "our", or "us") is committed to protecting your privacy. " +
+        "Sujood is committed to protecting your privacy. " +
         "This Privacy Policy explains how we collect, use, and safeguard your information " +
         "when you use the Sujood prayer app. By using the app you agree to this policy."
     ),
     LegalSection(
         "Information We Collect",
         "Account information: When you sign in with Google we receive your name, email address, " +
-        "and profile photo from Google. We use this only to personalise your experience.
-
-" +
-        "Location data: If you grant location permission, we use your device GPS coordinates " +
-        "solely to calculate accurate prayer times for your area. Coordinates are stored " +
-        "locally on your device and are never transmitted to our servers.
-
-" +
-        "Prayer activity: We store your prayer log (which prayers you marked as completed) " +
-        "locally on your device to power the Insights screen. This data does not leave your device.
-
-" +
-        "App preferences: Settings such as calculation method, notification preferences, and " +
-        "prayer lock configuration are stored locally on your device using Android DataStore."
+        "and profile photo from Google. We use this only to personalise your experience.\n\n" +
+        "Location data: If you grant location permission, we use your GPS coordinates " +
+        "solely to calculate accurate prayer times. Coordinates are stored locally on " +
+        "your device and are never transmitted to our servers.\n\n" +
+        "Prayer activity: Your prayer log is stored locally on your device to power the " +
+        "Insights screen. This data does not leave your device.\n\n" +
+        "App preferences: Settings such as calculation method, notification preferences, " +
+        "and prayer lock configuration are stored locally using Android DataStore."
     ),
     LegalSection(
         "How We Use Your Information",
-        "• Display your name and photo within the app
-" +
-        "• Calculate accurate prayer times based on your location
-" +
-        "• Track your prayer completion for personal insights
-" +
-        "• Send local notifications for prayer times (never remotely triggered)
-" +
-        "• Restore premium purchase status across reinstalls"
+        "- Display your name and photo within the app\n" +
+        "- Calculate accurate prayer times based on your location\n" +
+        "- Track your prayer completion for personal insights\n" +
+        "- Send local notifications for prayer times\n" +
+        "- Restore premium purchase status across reinstalls"
     ),
     LegalSection(
-        "Data Storage & Security",
-        "All personal data — location, prayer logs, and settings — is stored exclusively " +
-        "on your device. We do not operate servers that store your personal information.
-
-" +
-        "Authentication is handled by Google Firebase, which is subject to Google's own " +
-        "privacy policy. We only receive the basic profile information Google provides " +
-        "during sign-in.
-
-" +
-        "We implement industry-standard security measures including HTTPS-only network " +
-        "communication and Android's secure DataStore for local storage."
+        "Data Storage and Security",
+        "All personal data including location, prayer logs, and settings is stored " +
+        "exclusively on your device. We do not operate servers that store your personal information.\n\n" +
+        "Authentication is handled by Google Firebase, subject to Google's own privacy policy. " +
+        "We implement HTTPS-only network communication and Android's secure DataStore."
     ),
     LegalSection(
         "Third-Party Services",
-        "Aladhan API (aladhan.com): We send your GPS coordinates or city name to the " +
-        "Aladhan API to retrieve prayer times. No personally identifiable information is " +
-        "included in these requests beyond location data.
-
-" +
-        "Google Firebase Authentication: Used for Google Sign-In. Subject to Google's " +
-        "Privacy Policy at policies.google.com/privacy.
-
-" +
-        "Google Play Billing: Used to process the optional one-time premium purchase. " +
-        "Payment information is handled entirely by Google Play and never seen by us."
+        "Aladhan API: We send your location to aladhan.com to retrieve prayer times. " +
+        "No personally identifiable information beyond location is included.\n\n" +
+        "Google Firebase Authentication: Used for Google Sign-In. Subject to Google's Privacy Policy.\n\n" +
+        "Google Play Billing: Used for the optional premium purchase. Payment is handled " +
+        "entirely by Google Play and never seen by us."
     ),
     LegalSection(
         "Children's Privacy",
         "Sujood is not directed at children under 13. We do not knowingly collect personal " +
-        "information from children under 13. If you believe a child has provided us with " +
-        "personal information please contact us and we will delete it promptly."
+        "information from children under 13. Contact us if you believe a child has provided " +
+        "us with personal information and we will delete it promptly."
     ),
     LegalSection(
         "Your Rights",
         "You may delete your account and all associated data at any time by signing out " +
         "and uninstalling the app. Since all personal data is stored locally, uninstalling " +
-        "the app removes all your data from your device.
-
-" +
-        "For questions about your data or to exercise any privacy rights, contact us at " +
-        "privacy@sujood.app."
-    ),
-    LegalSection(
-        "Changes to This Policy",
-        "We may update this Privacy Policy from time to time. We will notify you of any " +
-        "material changes by updating the "Last updated" date below. Continued use of " +
-        "the app after changes constitutes acceptance of the updated policy."
+        "removes all your data from your device.\n\n" +
+        "For questions contact us at privacy@sujood.app."
     ),
     LegalSection(
         "Contact",
-        "If you have any questions about this Privacy Policy, please contact us:
-
-" +
-        "Email: privacy@sujood.app
-" +
-        "App: Sujood — Prayer Times & Lock"
+        "Email: privacy@sujood.app\nApp: Sujood - Prayer Times and Lock"
     )
 )
 
@@ -135,51 +97,41 @@ private val TERMS_SECTIONS = listOf(
     ),
     LegalSection(
         "Description of Service",
-        "Sujood is a Muslim prayer companion app that provides accurate prayer times, " +
-        "a Qibla compass, prayer tracking, Dhikr reminders, and an optional prayer lock " +
-        "feature. The app is available in free and premium versions."
+        "Sujood is a Muslim prayer companion app providing accurate prayer times, " +
+        "a Qibla compass, prayer tracking, Dhikr reminders, and an optional prayer lock feature. " +
+        "The app is available in free and premium versions."
     ),
     LegalSection(
         "Premium Purchase",
-        "The optional Premium Supporter purchase is a one-time payment of \$2.99 USD " +
-        "(or equivalent in your local currency) that unlocks an ad-free experience and " +
-        "supports continued development.
-
-" +
-        "Purchases are processed by Google Play and are subject to Google Play's refund " +
-        "policy. The premium status is tied to your Google Play account and can be " +
-        "restored on any device signed into the same account via the "Restore Purchase" " +
-        "option in the app."
+        "The optional Premium Supporter purchase is a one-time payment of 2.99 USD " +
+        "(or equivalent in your local currency) that unlocks an ad-free experience.\n\n" +
+        "Purchases are processed by Google Play and subject to Google Play's refund policy. " +
+        "Premium status can be restored on any device signed into the same account " +
+        "via Restore Purchase in the app."
     ),
     LegalSection(
         "Acceptable Use",
-        "You agree not to:
-" +
-        "• Reverse engineer, decompile, or disassemble the app
-" +
-        "• Use the app for any unlawful purpose
-" +
-        "• Attempt to interfere with the app's functionality
-" +
-        "• Misrepresent your identity when using Google Sign-In"
+        "You agree not to:\n" +
+        "- Reverse engineer or decompile the app\n" +
+        "- Use the app for any unlawful purpose\n" +
+        "- Attempt to interfere with the app's functionality\n" +
+        "- Misrepresent your identity when using Google Sign-In"
     ),
     LegalSection(
         "Prayer Time Accuracy",
         "Prayer times are calculated using the Aladhan API based on your location and " +
         "selected calculation method. While we strive for accuracy, prayer times are " +
-        "approximations. We recommend verifying times with your local mosque for " +
-        "religious obligations."
+        "approximations. We recommend verifying times with your local mosque."
     ),
     LegalSection(
         "Prayer Lock Feature",
-        "The prayer lock feature is a voluntary productivity tool. It requires the " +
-        ""Display over other apps" permission to function. We are not responsible " +
-        "for any consequences arising from use of this feature including missed " +
-        "communications during an active lock session."
+        "The prayer lock feature is a voluntary productivity tool requiring the " +
+        "Display over other apps permission. We are not responsible for any consequences " +
+        "arising from use of this feature including missed communications during an active session."
     ),
     LegalSection(
         "Disclaimer of Warranties",
-        "Sujood is provided "as is" without warranties of any kind. We do not guarantee " +
+        "Sujood is provided as-is without warranties of any kind. We do not guarantee " +
         "that the app will be error-free, uninterrupted, or that prayer times will be " +
         "100% accurate for all calculation methods and locations."
     ),
@@ -189,19 +141,8 @@ private val TERMS_SECTIONS = listOf(
         "incidental, or consequential damages arising from your use of Sujood."
     ),
     LegalSection(
-        "Changes to Terms",
-        "We reserve the right to modify these terms at any time. Material changes will " +
-        "be communicated through the app. Continued use after changes constitutes " +
-        "acceptance of the new terms."
-    ),
-    LegalSection(
         "Contact",
-        "For questions about these Terms of Service:
-
-" +
-        "Email: support@sujood.app
-" +
-        "App: Sujood — Prayer Times & Lock"
+        "Email: support@sujood.app\nApp: Sujood - Prayer Times and Lock"
     )
 )
 
@@ -214,7 +155,6 @@ fun LegalScreen(
         LegalType.PRIVACY_POLICY   -> "Privacy Policy"
         LegalType.TERMS_OF_SERVICE -> "Terms of Service"
     }
-    val lastUpdated = "Last updated: March 2026"
     val sections = when (type) {
         LegalType.PRIVACY_POLICY   -> PRIVACY_SECTIONS
         LegalType.TERMS_OF_SERVICE -> TERMS_SECTIONS
@@ -232,7 +172,7 @@ fun LegalScreen(
                 .navigationBarsPadding(),
             contentPadding = PaddingValues(bottom = 40.dp)
         ) {
-            // ── Top bar ──────────────────────────────────────────────────────
+            // Top bar
             item {
                 Row(
                     modifier = Modifier
@@ -257,7 +197,7 @@ fun LegalScreen(
                 }
             }
 
-            // ── Header card ──────────────────────────────────────────────────
+            // Header card
             item {
                 Box(
                     modifier = Modifier
@@ -265,7 +205,10 @@ fun LegalScreen(
                         .padding(horizontal = 20.dp)
                         .background(
                             Brush.horizontalGradient(
-                                listOf(AccentBlue.copy(alpha = 0.15f), Color(0xFF1E3A8A).copy(alpha = 0.2f))
+                                listOf(
+                                    AccentBlue.copy(alpha = 0.15f),
+                                    Color(0xFF1E3A8A).copy(alpha = 0.2f)
+                                )
                             ),
                             RoundedCornerShape(16.dp)
                         )
@@ -280,7 +223,7 @@ fun LegalScreen(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = lastUpdated,
+                            text = "Last updated: March 2026",
                             fontSize = 12.sp,
                             color = AccentBlue.copy(alpha = 0.8f)
                         )
@@ -299,7 +242,7 @@ fun LegalScreen(
                 Spacer(Modifier.height(20.dp))
             }
 
-            // ── Sections ─────────────────────────────────────────────────────
+            // Sections
             items(sections) { section ->
                 LegalSectionCard(section)
                 Spacer(Modifier.height(10.dp))
@@ -315,12 +258,6 @@ private fun LegalSectionCard(section: LegalSection) {
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
             .background(CardBg, RoundedCornerShape(14.dp))
-            .then(
-                Modifier.background(
-                    Color.Transparent,
-                    RoundedCornerShape(14.dp)
-                )
-            )
             .padding(18.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
