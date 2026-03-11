@@ -146,6 +146,7 @@ fun SettingsScreen(
     val settings by userPreferences.userSettings.collectAsState(initial = UserSettings())
     val scope    = rememberCoroutineScope()
 
+    val isPremium by userPreferences.isPremium.collectAsState(initial = false)
     val googlePhotoUrl  = remember { authRepository?.getPhotoUrl() }
     val googleEmail     = remember { authRepository?.getEmail() }
     val isSignedInWithGoogle = remember { authRepository?.isSignedIn == true }
@@ -257,11 +258,20 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(googleEmail ?: "Not signed in", fontSize = 13.sp, color = SlateText)
                             Spacer(modifier = Modifier.height(8.dp))
-                            Box(modifier = Modifier.clip(CircleShape)
-                                .background(PrimaryBlue.copy(alpha = 0.20f))
-                                .padding(horizontal = 10.dp, vertical = 3.dp)) {
-                                Text("PREMIUM MEMBER", fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold, color = PrimaryBlue, letterSpacing = 1.sp)
+                            if (isPremium) {
+                                Box(modifier = Modifier.clip(CircleShape)
+                                    .background(PrimaryBlue.copy(alpha = 0.20f))
+                                    .padding(horizontal = 10.dp, vertical = 3.dp)) {
+                                    Text("PREMIUM MEMBER", fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold, color = PrimaryBlue, letterSpacing = 1.sp)
+                                }
+                            } else {
+                                Box(modifier = Modifier.clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.07f))
+                                    .padding(horizontal = 10.dp, vertical = 3.dp)) {
+                                    Text("FREE", fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold, color = SlateText, letterSpacing = 1.sp)
+                                }
                             }
                         }
                         Icon(Icons.Default.ChevronRight, null, tint = SlateMuted, modifier = Modifier.size(20.dp))

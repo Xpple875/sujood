@@ -43,6 +43,8 @@ class UserPreferences(private val context: Context) {
         val ONBOARDING_COMPLETED    = booleanPreferencesKey("onboarding_completed")
         val APP_OPEN_COUNT          = intPreferencesKey("app_open_count")
         val SKIPPED_AUTH            = booleanPreferencesKey("skipped_auth")
+        val IS_PREMIUM              = booleanPreferencesKey("is_premium")
+        val PURCHASE_TOKEN          = stringPreferencesKey("purchase_token")
 
         // Location
         val USE_GPS_LOCATION        = booleanPreferencesKey("use_gps_location")
@@ -202,6 +204,22 @@ class UserPreferences(private val context: Context) {
 
     suspend fun setSkippedAuth(skipped: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.SKIPPED_AUTH] = skipped }
+    }
+
+    /** Whether the user has purchased premium. */
+    val isPremium: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[PreferencesKeys.IS_PREMIUM] ?: false
+    }
+
+    suspend fun setPremium(isPremium: Boolean, purchaseToken: String = "") {
+        context.dataStore.edit {
+            it[PreferencesKeys.IS_PREMIUM]      = isPremium
+            it[PreferencesKeys.PURCHASE_TOKEN]  = purchaseToken
+        }
+    }
+
+    suspend fun getPurchaseToken(): String {
+        return context.dataStore.data.map { it[PreferencesKeys.PURCHASE_TOKEN] ?: "" }.first()
     }
 
     /** Increments the app open counter and returns the new count. */

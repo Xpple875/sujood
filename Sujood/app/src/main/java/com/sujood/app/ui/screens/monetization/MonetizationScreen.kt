@@ -46,6 +46,7 @@ fun MonetizationScreen(
 ) {
     val scope = rememberCoroutineScope()
 
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -248,7 +249,6 @@ fun MonetizationScreen(
                                 )
                             )
                             .clickable {
-                                // TODO: Launch Google Play Billing flow
                                 scope.launch {
                                     userPreferences.setOnboardingCompleted()
                                     onContinue()
@@ -287,7 +287,7 @@ fun MonetizationScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // ── Footer links ─────────────────────────────────────────────────
+            // ── Footer links ─────────────────────────────────────────────
             Row(
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
                 modifier = Modifier.padding(bottom = 32.dp)
