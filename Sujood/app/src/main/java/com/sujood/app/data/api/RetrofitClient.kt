@@ -1,6 +1,5 @@
 package com.sujood.app.data.api
 
-import okhttp3.CertificatePinner
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -38,10 +37,17 @@ object RetrofitClient {
      * by running the openssl command above on your machine against the
      * live aladhan.com endpoint, then commit the result.
      */
-    private val certificatePinner = CertificatePinner.Builder()
-        .add("api.aladhan.com", "sha256/OZkL8XmZKY0ryyxsBXKpHvLU3+3xabxGPWC6bNO0CjA=")
-        .add("api.aladhan.com", "sha256/sRHdihwgkaib1P1gxX8HFszlD+7/gTfNvuAybgLPNis=")
-        .build()
+    // Certificate pinning is DISABLED until you replace the placeholder pin.
+    // Run this command on your machine to get the real pin, then re-enable:
+    //   openssl s_client -connect api.aladhan.com:443 2>/dev/null \
+    //     | openssl x509 -pubkey -noout | openssl pkey -pubin -outform DER \
+    //     | openssl dgst -sha256 -binary | base64
+    // Then uncomment the lines below and remove this comment.
+    //
+    // private val certificatePinner = CertificatePinner.Builder()
+    //     .add("api.aladhan.com", "sha256/YOUR_REAL_PIN_HERE")
+    //     .add("api.aladhan.com", "sha256/sRHdihwgkaib1P1gxX8HFszlD+7/gTfNvuAybgLPNis=")
+    //     .build()
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -62,7 +68,7 @@ object RetrofitClient {
                     .build()
                 chain.proceed(request)
             }
-            .certificatePinner(certificatePinner)
+            // .certificatePinner(certificatePinner)  // re-enable after setting real pin
             .build()
     }
 

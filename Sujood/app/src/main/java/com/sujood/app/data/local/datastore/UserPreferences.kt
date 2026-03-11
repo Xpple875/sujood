@@ -252,6 +252,18 @@ class UserPreferences(private val context: Context) {
         context.dataStore.edit { it.clear() }
     }
 
+    /**
+     * Signs out the user without wiping their prayer settings, location,
+     * or cached data. Only clears auth-related flags so they see Login
+     * on next launch but all their preferences are preserved.
+     */
+    suspend fun clearAuthData() {
+        context.dataStore.edit {
+            it.remove(PreferencesKeys.SKIPPED_AUTH)
+            // Keep everything else — location, prayer settings, cache, etc.
+        }
+    }
+
     suspend fun setDarkMode(isDark: Boolean) {
         context.dataStore.edit { prefs -> prefs[PreferencesKeys.IS_DARK_MODE] = isDark }
     }

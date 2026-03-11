@@ -220,7 +220,8 @@ fun SujoodApp(
                     EmotionalOnboardingScreen(
                         userPreferences = userPreferences,
                         onComplete = {
-                            navController.navigate(Screen.Monetization.route) {
+                            // After onboarding → go to Login first, then Home
+                            navController.navigate(Screen.Login.route) {
                                 popUpTo(Screen.Onboarding.route) { inclusive = true }
                             }
                         }

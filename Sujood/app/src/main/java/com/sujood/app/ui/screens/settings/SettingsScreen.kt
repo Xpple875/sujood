@@ -181,7 +181,7 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         scope.launch {
-                            userPreferences.clearAllData()
+                            userPreferences.clearAuthData()
                             showSignOutDialog = false
                             onSignOut()
                         }
