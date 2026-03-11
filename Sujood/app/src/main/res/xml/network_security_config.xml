@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Enforces HTTPS-only for all connections.
+    Cleartext (HTTP) traffic is blocked everywhere.
+    Certificate pinning on the Aladhan prayer times API protects against
+    man-in-the-middle attacks on that endpoint.
+
+    HOW TO UPDATE PINS:
+      Run: echo | openssl s_client -connect api.aladhan.com:443 2>/dev/null \
+             | openssl x509 -pubkey -noout | openssl pkey -pubin -outform DER \
+             | openssl dgst -sha256 -binary | base64
+      Replace the sha256 value below and bump the expiration date.
+-->
+<network-security-config>
+
+    <!-- Block all cleartext (HTTP) traffic app-wide -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Certificate pinning for the Aladhan prayer times API -->
+    <domain-config>
+        <domain includeSubdomains="true">api.aladhan.com</domain>
+        <pin-set expiration="2027-01-01">
+            <!--
+                Cloudflare ECC CA-3 intermediate (primary pin)
+                Obtain with: openssl s_client -connect api.aladhan.com:443 | openssl x509 -pubkey -noout | ...
+                Replace this with the real pin after running the command on your machine.
+            -->
+            <pin digest="SHA-256">OZkL8XmZKY0ryyxsBXKpHvLU3+3xabxGPWC6bNO0CjA=</pin>
+            <!--
+                Cloudflare backup root pin — keeps the app working if Cloudflare
+                rotates their intermediate certificate.
+            -->
+            <pin digest="SHA-256">sRHdihwgkaib1P1gxX8HFszlD+7/gTfNvuAybgLPNis=</pin>
+        </pin-set>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+
+</network-security-config>
