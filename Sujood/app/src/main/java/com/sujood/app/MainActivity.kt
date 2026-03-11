@@ -7,7 +7,6 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -65,9 +64,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var userPreferences: UserPreferences
     private lateinit var repository: PrayerTimesRepository
 
-    private val notificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { /* Permission result handled silently — HomeScreen shows error if denied */ }
+    // Notification + overlay permissions are handled in OnboardingScreen, not here.
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,21 +80,10 @@ class MainActivity : ComponentActivity() {
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
 
-        // Request notification permission on Android 13+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
+        // Notification permission is requested from the onboarding permissions page.
 
-        // Request overlay (SYSTEM_ALERT_WINDOW) permission if not granted
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-            !android.provider.Settings.canDrawOverlays(this)
-        ) {
-            val overlayIntent = android.content.Intent(
-                android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                android.net.Uri.parse("package:$packageName")
-            )
-            startActivity(overlayIntent)
-        }
+        // Overlay permission is requested only from the onboarding permissions page,
+        // never auto-prompted on launch. This avoids jarring the user on first open.
 
         userPreferences = UserPreferences(this)
         repository = PrayerTimesRepository(
