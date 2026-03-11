@@ -5,3 +5,4 @@ Sujood/local.properties
 *.iml
 .idea/
 Sujrc/
+Sujood/app/google-services.json

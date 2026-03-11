@@ -1,5 +1,7 @@
 package com.sujood.app
 
+import com.sujood.app.data.auth.AuthRepository
+
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -17,6 +19,10 @@ import kotlinx.coroutines.launch
  */
 class SujoodApplication : Application() {
 
+    lateinit var authRepository: AuthRepository
+        private set
+
+
     // Application scope for coroutines
     val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -32,6 +38,7 @@ class SujoodApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        authRepository = AuthRepository(this)
         createNotificationChannels()
     }
 

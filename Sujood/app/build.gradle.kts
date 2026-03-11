@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -110,6 +111,11 @@ dependencies {
 
     // Lottie for animations
     implementation("com.airbnb.android:lottie-compose:6.2.0")
+
+    // Firebase — Auth + Google Sign-In
+    implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

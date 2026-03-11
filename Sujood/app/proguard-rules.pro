@@ -46,3 +46,9 @@
 -keepclassmembers class * extends androidx.work.ListenableWorker {
     public <init>(android.content.Context, androidx.work.WorkerParameters);
 }
+
+# Firebase Auth
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.auth.** { *; }
+-dontwarn com.google.firebase.**
+-dontwarn com.google.android.gms.**

@@ -42,6 +42,7 @@ class UserPreferences(private val context: Context) {
 
         val ONBOARDING_COMPLETED    = booleanPreferencesKey("onboarding_completed")
         val APP_OPEN_COUNT          = intPreferencesKey("app_open_count")
+        val SKIPPED_AUTH            = booleanPreferencesKey("skipped_auth")
 
         // Location
         val USE_GPS_LOCATION        = booleanPreferencesKey("use_gps_location")
@@ -192,6 +193,15 @@ class UserPreferences(private val context: Context) {
                 "ISHA"    -> prefs[PreferencesKeys.ISHA_LOCK] = enabled
             }
         }
+    }
+
+    /** True if the user explicitly chose "continue without account". */
+    val skippedAuth: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[PreferencesKeys.SKIPPED_AUTH] ?: false
+    }
+
+    suspend fun setSkippedAuth(skipped: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.SKIPPED_AUTH] = skipped }
     }
 
     /** Increments the app open counter and returns the new count. */

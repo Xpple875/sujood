@@ -58,6 +58,7 @@ import com.sujood.app.ui.theme.SujoodTheme
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 class MainActivity : ComponentActivity() {
 
@@ -124,6 +125,7 @@ sealed class Screen(val route: String) {
     data object Qibla : Screen("qibla")
     data object Insights : Screen("insights")
     data object Settings : Screen("settings")
+    data object Login    : Screen("login")
 }
 
 @OptIn(ExperimentalPermissionsApi::class)
@@ -134,6 +136,8 @@ fun SujoodApp(
 ) {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
+    val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as com.sujood.app.SujoodApplication
+    val authRepository = remember { app.authRepository }
     val settings by userPreferences.userSettings.collectAsState(initial = com.sujood.app.domain.model.UserSettings())
     val hasCompletedOnboarding = settings.hasCompletedOnboarding
     
@@ -181,16 +185,25 @@ fun SujoodApp(
                             // onNavigate again after the animation delay
                             val loaded = splashSettings ?: return@SplashScreen
                             if (loaded.hasCompletedOnboarding) {
-                                // Increment open count and show paywall every 3rd launch
                                 scope.launch {
-                                    val count = userPreferences.incrementAndGetAppOpenCount()
-                                    if (count % 3 == 0) {
-                                        navController.navigate(Screen.Monetization.route) {
+                                    val skipped = userPreferences.skippedAuth.first()
+                                    val isSignedIn = authRepository.isSignedIn
+                                    if (!isSignedIn && !skipped) {
+                                        // First time after onboarding — ask them to sign in
+                                        navController.navigate(Screen.Login.route) {
                                             popUpTo(Screen.Splash.route) { inclusive = true }
                                         }
                                     } else {
-                                        navController.navigate(Screen.Home.route) {
-                                            popUpTo(Screen.Splash.route) { inclusive = true }
+                                        // Already signed in or skipped — normal launch flow
+                                        val count = userPreferences.incrementAndGetAppOpenCount()
+                                        if (count % 3 == 0) {
+                                            navController.navigate(Screen.Monetization.route) {
+                                                popUpTo(Screen.Splash.route) { inclusive = true }
+                                            }
+                                        } else {
+                                            navController.navigate(Screen.Home.route) {
+                                                popUpTo(Screen.Splash.route) { inclusive = true }
+                                            }
                                         }
                                     }
                                 }
@@ -247,7 +260,51 @@ fun SujoodApp(
                 composable(Screen.Settings.route) {
                     SettingsScreen(
                         userPreferences = userPreferences,
-                        onNavigateBack = { navController.popBackStack() }
+                        onNavigateBack = { navController.popBackStack() },
+                        onSignOut = {
+                            scope.launch {
+                                authRepository.signOut()
+                                userPreferences.setSkippedAuth(false)
+                                navController.navigate(Screen.Login.route) {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            }
+                        }
+                    )
+                }
+
+                composable(Screen.Login.route) {
+                    com.sujood.app.ui.screens.auth.LoginScreen(
+                        authRepository = authRepository,
+                        onSignedIn = {
+                            scope.launch {
+                                val count = userPreferences.incrementAndGetAppOpenCount()
+                                if (count % 3 == 0) {
+                                    navController.navigate(Screen.Monetization.route) {
+                                        popUpTo(Screen.Login.route) { inclusive = true }
+                                    }
+                                } else {
+                                    navController.navigate(Screen.Home.route) {
+                                        popUpTo(Screen.Login.route) { inclusive = true }
+                                    }
+                                }
+                            }
+                        },
+                        onSkip = {
+                            scope.launch {
+                                userPreferences.setSkippedAuth(true)
+                                val count = userPreferences.incrementAndGetAppOpenCount()
+                                if (count % 3 == 0) {
+                                    navController.navigate(Screen.Monetization.route) {
+                                        popUpTo(Screen.Login.route) { inclusive = true }
+                                    }
+                                } else {
+                                    navController.navigate(Screen.Home.route) {
+                                        popUpTo(Screen.Login.route) { inclusive = true }
+                                    }
+                                }
+                            }
+                        }
                     )
                 }
             }
