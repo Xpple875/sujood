@@ -113,7 +113,7 @@ class PrayerLockOverlayService : Service() {
                 // It calls setShowWhenLocked/setTurnScreenOn/requestDismissKeyguard
                 // so that TYPE_APPLICATION_OVERLAY windows can appear above the lock screen.
                 val lockIntent = android.content.Intent(applicationContext, LockScreenActivity::class.java).apply {
-                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                    this.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
                             android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
                 }
                 startActivity(lockIntent)
