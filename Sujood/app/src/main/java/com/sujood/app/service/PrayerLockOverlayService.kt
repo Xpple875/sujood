@@ -109,17 +109,6 @@ class PrayerLockOverlayService : Service() {
             }
 
             launch(Dispatchers.Main) {
-                // Launch the transparent LockScreenActivity first.
-                // It calls setShowWhenLocked/setTurnScreenOn/requestDismissKeyguard
-                // so that TYPE_APPLICATION_OVERLAY windows can appear above the lock screen.
-                val lockIntent = android.content.Intent(applicationContext, LockScreenActivity::class.java).apply {
-                    this.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
-                            android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
-                }
-                startActivity(lockIntent)
-                // Small delay so the activity has time to dismiss the keyguard
-                // before we add the overlay window on top
-                kotlinx.coroutines.delay(300)
                 showOverlay(prayerName, quote, minDurationMs)
             }
         }
@@ -147,7 +136,6 @@ class PrayerLockOverlayService : Service() {
                 @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
                     WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
                     WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
                     WindowManager.LayoutParams.FLAG_FULLSCREEN,
@@ -234,12 +222,9 @@ class PrayerLockOverlayService : Service() {
         }
 
         try {
+            // FLAG_SHOW_WHEN_LOCKED on the params is enough to display the overlay
+            // on top of the lock screen without dismissing it.
             windowManager?.addView(overlayView, params)
-            // On Android O+, window flags alone don't dismiss the keyguard from a Service.
-            // KeyguardManager.requestDismissKeyguard needs an Activity, so we rely on the
-            // window flags above (SHOW_WHEN_LOCKED + DISMISS_KEYGUARD) which do work for
-            // TYPE_APPLICATION_OVERLAY on most devices. For MIUI/Samsung extra security
-            // modes the user may need to disable "Enhanced protection" in lock screen settings.
         } catch (e: Exception) {
             e.printStackTrace()
             stopSelf()
