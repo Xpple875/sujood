@@ -2,6 +2,8 @@ package com.sujood.app.ui.screens.settings
 
 import android.Manifest
 import android.content.Intent
+import android.provider.Settings
+import android.os.PowerManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +35,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
@@ -487,6 +490,46 @@ fun SettingsScreen(
                                 cacheCleared = true
                             }
                         })
+                }
+            }
+
+            item { SectionLabel("Permissions") }
+            item {
+                GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                    val powerManager = context.getSystemService(android.content.Context.POWER_SERVICE) as PowerManager
+                    val isBatteryOptimized = !powerManager.isIgnoringBatteryOptimizations(context.packageName)
+                    SettingsRow(
+                        icon = Icons.Default.BatteryFull,
+                        title = "Battery Optimization",
+                        subtitle = if (isBatteryOptimized) "Tap to disable — required for Adhan" else "Disabled — Adhan will work in background",
+                        trailing = {
+                            if (isBatteryOptimized) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color(0xFFEF4444).copy(alpha = 0.15f))
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                ) {
+                                    Text("FIX", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEF4444))
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color(0xFF22C55E).copy(alpha = 0.15f))
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                ) {
+                                    Text("OK", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF22C55E))
+                                }
+                            }
+                        },
+                        onClick = {
+                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                            context.startActivity(intent)
+                        }
+                    )
                 }
             }
 
