@@ -736,7 +736,7 @@ private fun rememberGooglePhotoPainter(url: String): androidx.compose.ui.graphic
     return if (bitmap != null)
         BitmapPainter(bitmap!!.asImageBitmap())
     else
-        androidx.compose.ui.graphics.painter.ColorPainter(com.sujood.app.ui.theme.PrimaryBlue.copy(alpha = 0.2f))
+        androidx.compose.ui.graphics.painter.ColorPainter(androidx.compose.ui.graphics.Color(0xFF1E40FF).copy(alpha = 0.2f))
 }
 
 private suspend fun rescheduleAlarms(context: android.content.Context, userPreferences: UserPreferences) {
