@@ -20,6 +20,9 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        // Web Client ID from Firebase Console → Authentication → Google → Web SDK configuration
+        // Replace this with your actual Web Client ID — ends in .apps.googleusercontent.com
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"REPLACE_WITH_YOUR_WEB_CLIENT_ID\"")
     }
 
     buildTypes {

@@ -42,8 +42,13 @@ class AuthRepository(private val context: Context) {
      * the R.string.default_web_client_id resource — no hardcoding needed.
      */
     fun getGoogleSignInClient(): GoogleSignInClient {
+        // SERVER_CLIENT_ID is the Web Client ID from your Firebase project.
+        // Find it in Firebase Console → Authentication → Sign-in method → Google
+        // → Web SDK configuration → Web client ID
+        // It looks like: 123456789-xxxx.apps.googleusercontent.com
+        val webClientId = com.sujood.app.BuildConfig.GOOGLE_WEB_CLIENT_ID
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(context.getString(com.sujood.app.R.string.default_web_client_id))
+            .requestIdToken(webClientId)
             .requestEmail()
             .requestProfile()
             .build()
