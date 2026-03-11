@@ -6,12 +6,32 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import android.provider.Settings
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseOutBack
+import androidx.compose.animation.core.EaseOutBounce
+import androidx.compose.animation.core.EaseOutQuart
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -38,6 +58,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -95,7 +116,21 @@ fun HomeScreen(
 
     val uiState   by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
+    val haptic    = LocalHapticFeedback.current
+
+    val allDone by viewModel.allPrayersDone.collectAsState()
+    LaunchedEffect(allDone) {
+        if (allDone) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.sendAllPrayersDoneNotification(context)
+            showAllDoneBanner = true
+            delay(3500)
+            showAllDoneBanner = false
+        }
+    }
     var visible   by remember { mutableStateOf(false) }
+    var justCompletedPrayer by remember { mutableStateOf<Prayer?>(null) }
+    var showAllDoneBanner   by remember { mutableStateOf(false) }
     val locationPermission = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
 
     // ── Location dialog state — declared here so HeroSection can use it ──
@@ -244,6 +279,10 @@ fun HomeScreen(
                     ) {
                         PrayerRow(prayerTime, isCompleted, isCurrent,
                             Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            if (!isCompleted) {
+                                justCompletedPrayer = prayerTime.prayer
+                            }
                             viewModel.logPrayerCompletion(prayerTime.prayer)
                         }
                     }
@@ -255,6 +294,28 @@ fun HomeScreen(
                 }
                 item { Spacer(Modifier.height(32.dp)) }
             }
+        }
+
+        // ── Prayer completion burst overlay ──────────────────────────────────
+        justCompletedPrayer?.let { prayer ->
+            PrayerCompletionBurst(
+                prayerName = prayer.displayName,
+                onDone = { justCompletedPrayer = null }
+            )
+        }
+
+        // ── All-5-done banner ─────────────────────────────────────────────────
+        AnimatedVisibility(
+            visible = showAllDoneBanner,
+            enter = fadeIn(tween(400)) + slideInVertically { -it },
+            exit  = androidx.compose.animation.fadeOut(tween(400)) +
+                    slideOutVertically { -it },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 48.dp)
+                .zIndex(10f)
+        ) {
+            AllDoneBanner()
         }
     }
 }
@@ -411,13 +472,24 @@ private fun PrayerDotRow(prayers: List<Prayer>, completedPrayers: Set<Prayer>) {
         prayers.forEach { prayer ->
             val done = completedPrayers.contains(prayer)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.size(32.dp).clip(CircleShape)
-                    .background(if (done) PrimaryBlue else Color.White.copy(alpha = 0.07f))
-                    .border(2.dp, BackgroundDark.copy(alpha = 0.6f), CircleShape),
-                    contentAlignment = Alignment.Center) {
-                    Text(prayer.displayName.first().toString(), fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (done) Color.White else Color.White.copy(alpha = 0.3f))
+                Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(32.dp).clip(CircleShape)
+                        .background(if (done) PrimaryBlue else Color.White.copy(alpha = 0.07f))
+                        .border(2.dp, BackgroundDark.copy(alpha = 0.6f), CircleShape),
+                        contentAlignment = Alignment.Center) {
+                        Text(prayer.displayName.first().toString(), fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (done) Color.White else Color.White.copy(alpha = 0.3f))
+                    }
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = done,
+                        enter = scaleIn(spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow)),
+                        exit  = scaleOut()
+                    ) {
+                        Icon(Icons.Default.CheckCircle, null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp))
+                    }
                 }
                 Spacer(Modifier.height(3.dp))
                 Text(prayer.displayName.uppercase(), fontSize = 7.sp, fontWeight = FontWeight.Bold,

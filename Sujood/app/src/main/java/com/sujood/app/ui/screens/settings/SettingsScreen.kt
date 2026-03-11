@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AppSettingsAlt
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Check
@@ -533,6 +534,37 @@ fun SettingsScreen(
                 }
             }
 
+            item {
+                GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                    SettingsRow(
+                        icon = Icons.Default.AppSettingsAlt,
+                        title = "Reset All Permissions",
+                        subtitle = "Review and reset app permissions in system settings",
+                        trailing = { Icon(Icons.Default.OpenInNew, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) },
+                        onClick = {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                            context.startActivity(intent)
+                        }
+                    )
+                    GlassDivider()
+                    SettingsRow(
+                        icon = Icons.Default.Settings,
+                        title = "App Permissions",
+                        subtitle = "View or reset all permissions in system settings",
+                        trailing = { Icon(Icons.Default.OpenInNew, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) },
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                            context.startActivity(intent)
+                        }
+                    )
+                }
+            }
+
             item { SectionLabel("About") }
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
@@ -542,6 +574,7 @@ fun SettingsScreen(
                     SettingsRow(icon = Icons.Default.SupportAgent, title = "Support & Feedback",
                         trailing = { Icon(Icons.Default.OpenInNew, null, tint = SlateMuted, modifier = Modifier.size(18.dp)) },
                         onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("mailto:support@sujood.app"))
                             context.startActivity(intent)
                         })
