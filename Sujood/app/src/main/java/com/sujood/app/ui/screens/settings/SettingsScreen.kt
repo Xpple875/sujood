@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -131,12 +132,17 @@ private val ADHAN_OPTIONS = listOf(
 @Composable
 fun SettingsScreen(
     userPreferences: UserPreferences,
+    authRepository: com.sujood.app.data.auth.AuthRepository? = null,
     onNavigateBack: () -> Unit,
     onSignOut: () -> Unit = {}
 ) {
     val context  = LocalContext.current
     val settings by userPreferences.userSettings.collectAsState(initial = UserSettings())
     val scope    = rememberCoroutineScope()
+
+    val googlePhotoUrl  = remember { authRepository?.getPhotoUrl() }
+    val googleEmail     = remember { authRepository?.getEmail() }
+    val isSignedInWithGoogle = remember { authRepository?.isSignedIn == true }
 
     var showNameDialog         by remember { mutableStateOf(false) }
     var showMethodDialog       by remember { mutableStateOf(false) }
@@ -215,12 +221,23 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Box(modifier = Modifier.size(72.dp)) {
-                            Box(modifier = Modifier.size(72.dp).clip(CircleShape)
-                                .background(PrimaryBlue.copy(alpha = 0.20f))
-                                .border(2.dp, PrimaryBlue.copy(alpha = 0.50f), CircleShape),
-                                contentAlignment = Alignment.Center) {
-                                Text(settings.name.firstOrNull()?.uppercase() ?: "S",
-                                    fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            if (googlePhotoUrl != null) {
+                                // Google profile photo
+                                androidx.compose.foundation.Image(
+                                    painter = rememberGooglePhotoPainter(googlePhotoUrl),
+                                    contentDescription = "Profile photo",
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                    modifier = Modifier.size(72.dp).clip(CircleShape)
+                                        .border(2.dp, PrimaryBlue.copy(alpha = 0.50f), CircleShape)
+                                )
+                            } else {
+                                Box(modifier = Modifier.size(72.dp).clip(CircleShape)
+                                    .background(PrimaryBlue.copy(alpha = 0.20f))
+                                    .border(2.dp, PrimaryBlue.copy(alpha = 0.50f), CircleShape),
+                                    contentAlignment = Alignment.Center) {
+                                    Text(settings.name.firstOrNull()?.uppercase() ?: "S",
+                                        fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
                             }
                             Box(modifier = Modifier.size(22.dp).align(Alignment.BottomEnd)
                                 .clip(CircleShape).background(PrimaryBlue).border(2.dp, BgDark, CircleShape),
@@ -232,7 +249,7 @@ fun SettingsScreen(
                             Text(settings.name.ifEmpty { "Tap to set name" },
                                 fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             Spacer(modifier = Modifier.height(2.dp))
-                            Text("sujood@app.com", fontSize = 13.sp, color = SlateText)
+                            Text(googleEmail ?: "Not signed in", fontSize = 13.sp, color = SlateText)
                             Spacer(modifier = Modifier.height(8.dp))
                             Box(modifier = Modifier.clip(CircleShape)
                                 .background(PrimaryBlue.copy(alpha = 0.20f))

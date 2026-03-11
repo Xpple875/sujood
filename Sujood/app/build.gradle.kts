@@ -22,7 +22,7 @@ android {
         }
         // Web Client ID from Firebase Console → Authentication → Google → Web SDK configuration
         // Replace this with your actual Web Client ID — ends in .apps.googleusercontent.com
-        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"REPLACE_WITH_YOUR_WEB_CLIENT_ID\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"709512105810-fbtea5aqf0usf5tp353gu8mh1a70bt50.apps.googleusercontent.com\"")
     }
 
     buildTypes {

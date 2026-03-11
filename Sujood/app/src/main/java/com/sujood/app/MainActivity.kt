@@ -260,6 +260,7 @@ fun SujoodApp(
                 composable(Screen.Settings.route) {
                     SettingsScreen(
                         userPreferences = userPreferences,
+                        authRepository = authRepository,
                         onNavigateBack = { navController.popBackStack() },
                         onSignOut = {
                             scope.launch {
@@ -276,6 +277,7 @@ fun SujoodApp(
                 composable(Screen.Login.route) {
                     com.sujood.app.ui.screens.auth.LoginScreen(
                         authRepository = authRepository,
+                        userPreferences = userPreferences,
                         onSignedIn = {
                             scope.launch {
                                 val count = userPreferences.incrementAndGetAppOpenCount()

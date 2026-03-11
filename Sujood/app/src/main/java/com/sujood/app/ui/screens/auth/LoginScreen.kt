@@ -40,6 +40,7 @@ private val GoogleWhite = Color(0xFFF8F9FA)
 @Composable
 fun LoginScreen(
     authRepository: AuthRepository,
+    userPreferences: com.sujood.app.data.local.datastore.UserPreferences,
     onSignedIn: () -> Unit,
     onSkip: () -> Unit
 ) {
@@ -64,7 +65,15 @@ fun LoginScreen(
                         val signInResult = authRepository.firebaseSignInWithGoogle(idToken)
                         isLoading = false
                         signInResult.fold(
-                            onSuccess = { onSignedIn() },
+                            onSuccess = { user ->
+                                // Persist the Google display name so it shows immediately
+                                // in HomeScreen ("Salam, Name") and Settings
+                                val googleName = user.displayName
+                                if (!googleName.isNullOrBlank()) {
+                                    userPreferences.saveUserName(googleName)
+                                }
+                                onSignedIn()
+                            },
                             onFailure = { e ->
                                 errorMsg = "Sign-in failed. Please try again."
                                 Log.e("LoginScreen", "Firebase sign-in failed", e)
