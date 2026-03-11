@@ -105,9 +105,9 @@ fun SplashScreen(onNavigate: () -> Unit) {
             )
             Spacer(Modifier.height(10.dp))
             Text(
-                "Connecting to the Divine",
+                "Get Closer to Allah",
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color.White.copy(alpha = 0.40f),
+                color = Color.White.copy(alpha = 0.30f),
                 modifier = Modifier.alpha(if (showSubtitle) 1f else 0f)
             )
 
